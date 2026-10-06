@@ -2,7 +2,10 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { AuthResponse } from '@skillshare/contracts';
 type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean; _epoch?: number };
 
-export function createAuthTransport(baseURL = '/api') {
+const backendUrl = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/+$/, '');
+export const API_BASE_URL = `${backendUrl}/api`;
+
+export function createAuthTransport(baseURL = API_BASE_URL) {
   const api = axios.create({ baseURL, withCredentials: true, timeout: 15000 });
   const auth = axios.create({ baseURL: `${baseURL}/auth`, withCredentials: true, timeout: 15000 });
   let token: string | null = null,

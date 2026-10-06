@@ -23,6 +23,7 @@
     "test": "vitest run",
     "db:migrate": "npm run db:migrate -w @skillshare/api",
     "db:seed": "npm run db:seed -w @skillshare/api",
+    "admin:create": "npm run admin:create -w @skillshare/api",
     "admin:grant": "npm run admin:grant -w @skillshare/api --",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

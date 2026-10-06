@@ -81,3 +81,5 @@ app.use((_req, _res) => {
   throw new AppError(404, 'NOT_FOUND', 'Endpoint not found.');
 });
 app.use(errorHandler);
+
+export default app;
