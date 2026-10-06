@@ -2,7 +2,10 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { AuthResponse } from '@skillshare/contracts';
 type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean; _epoch?: number };
 
-const backendUrl = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/+$/, '');
+// In dev, requests go through the Vite /api proxy (same-origin, so cookies work); VITE_API_URL is the proxy target.
+const backendUrl = import.meta.env.PROD
+  ? (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/+$/, '')
+  : '';
 export const API_BASE_URL = `${backendUrl}/api`;
 
 export function createAuthTransport(baseURL = API_BASE_URL) {
