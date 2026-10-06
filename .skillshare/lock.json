@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "harnessId": "26c33d06-d6e8-4ca5-8a9f-d42ddd7a444a",
+  "server": "http://localhost:4000",
+  "releaseId": "cc3e0b79-c912-49aa-a250-4517e8b05769",
+  "version": "1.0.0",
+  "revision": 2,
+  "treeHash": "fecc76863e9e2c0d0905489e4f2f9ac6d827517da2980fed478cd59b1f7bb6f4",
+  "files": [
+    {
+      "path": ".claude/skills/new-skill/SKILL.md",
+      "hash": "c54e000118603056cc6b14c14936da0534b9bfd6835536b90950f8fdb74de861"
+    },
+    {
+      "path": ".claude/skills/new-skill/references/checklist.md",
+      "hash": "b57a6ee8c240adc67e45e44273e9719112e793e3fdda6a1afcc0250df1ea76ad"
+    }
+  ]
+}

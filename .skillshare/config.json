@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "server": "http://localhost:4000",
+  "harnessId": "26c33d06-d6e8-4ca5-8a9f-d42ddd7a444a",
+  "profiles": [
+    "claude-code"
+  ]
+}

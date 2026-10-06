@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f8fafc" />
+    <script>
+      // Apply the theme before rendering to avoid a flash of the opposite theme.
+      (() => {
+        let theme;
+        try {
+          theme = localStorage.getItem('skillshare-theme');
+        } catch {}
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+        document.querySelector('meta[name="theme-color"]').content =
+          theme === 'dark' ? '#0b1120' : '#f8fafc';
+      })();
+    </script>
+    <meta
+      name="description"
+      content="Discover useful AI agents and skills. Make them your own. Share what works with clear attribution."
+    />
+    <title>SkillShare — Build on what works</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

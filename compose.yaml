@@ -1,0 +1,24 @@
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '127.0.0.1:11025:1025'
+      - '127.0.0.1:18025:8025'
+    restart: unless-stopped
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: skillshare
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your shell or root .env}
+      POSTGRES_DB: skillshare
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U skillshare']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+volumes:
+  postgres_data:

@@ -1,0 +1,40 @@
+{
+  "name": "@skillsync/cli",
+  "version": "0.1.3",
+  "description": "Browser-authenticated CLI for syncing native AI Harness files with SkillShare.",
+  "type": "module",
+  "bin": {
+    "sks": "dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node test.mjs",
+    "check": "npm run typecheck && npm test && npm run build && node dist/bin.js --help",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test",
+    "pack:check": "npm pack --dry-run",
+    "publish:dry-run": "npm publish --dry-run"
+  },
+  "dependencies": {
+    "zod": "4.6.5",
+    "yaml": "2.9.1"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "2.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

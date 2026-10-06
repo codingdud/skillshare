@@ -1,0 +1,48 @@
+{
+  "name": "skillshare",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev -w @skillshare/api\" \"npm run dev -w @skillshare/web\"",
+    "build": "npm run build -w @skillshare/contracts && npm run build -w @skillshare/api && npm run build -w @skillshare/web && npm run build -w @skillsync/cli",
+    "cli:build": "npm run build -w @skillsync/cli",
+    "cli:test": "npm test -w @skillsync/cli",
+    "cli:check": "npm run check -w @skillsync/cli",
+    "cli:pack": "node scripts/pack-cli.mjs",
+    "cli:publish:dry-run": "npm publish -w @skillsync/cli --dry-run",
+    "cli:publish": "npm publish -w @skillsync/cli",
+    "cli:publish:token": "powershell.exe -NoProfile -File scripts/publish-cli-token.ps1",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "db:migrate": "npm run db:migrate -w @skillshare/api",
+    "db:seed": "npm run db:seed -w @skillshare/api",
+    "admin:grant": "npm run admin:grant -w @skillshare/api --",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "setup": "node scripts/setup.mjs && npm run db:migrate && npm run db:seed",
+    "setup:postgres": "node scripts/setup-postgres.mjs && docker compose up -d --wait && npm run db:migrate && npm run db:seed"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "latest",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "latest",
+    "@types/supertest": "latest",
+    "axios-mock-adapter": "latest",
+    "concurrently": "latest",
+    "node": "^24.21.0",
+    "prettier": "latest",
+    "supertest": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-win32-x64-msvc": "^1.2.11"
+  }
+}
