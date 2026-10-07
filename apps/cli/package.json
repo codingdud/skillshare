@@ -3,6 +3,11 @@
   "version": "0.1.4",
   "description": "Browser-authenticated CLI for syncing native AI Harness files with SkillShare.",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codingdud/skillshare.git",
+    "directory": "apps/cli"
+  },
   "bin": {
     "sks": "dist/bin.js"
   },
