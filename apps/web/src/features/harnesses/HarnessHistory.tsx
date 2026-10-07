@@ -37,14 +37,19 @@ export function HarnessHistoryPage() {
       target: string;
       paths: string[];
     } | null>(null);
-  const [canRestore, setCanRestore] = useState(false);
+  const [canRestore, setCanRestore] = useState(false),
+    [canRead, setCanRead] = useState<boolean | null>(null);
   useEffect(() => {
     void api
       .get<{ capabilities: HarnessCapabilities }>('/harnesses/' + id)
-      .then((r) => setCanRestore(r.data.capabilities.canEdit && !r.data.capabilities.requireReview))
+      .then((r) => {
+        setCanRestore(r.data.capabilities.canEdit && !r.data.capabilities.requireReview);
+        setCanRead(r.data.capabilities.canReadDraft);
+      })
       .catch((e) => setError(errorMessage(e)));
   }, [id]);
   useEffect(() => {
+    if (canRead !== true) return;
     let live = true;
     setItems([]);
     setCursor(null);
@@ -65,7 +70,7 @@ export function HarnessHistoryPage() {
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, canRead]);
   useEffect(() => {
     let live = true;
     if (!base || !head) return;
@@ -152,6 +157,24 @@ export function HarnessHistoryPage() {
       setRestoring(false);
     }
   }
+  if (canRead === false)
+    return (
+      <>
+        <PageTitle
+          title="Harness history"
+          description="Working revisions are visible to this Harness's owner, editors, and publishers."
+          action={
+            <ShadButton asChild variant="outline" size="lg" className="h-10 px-4 font-semibold">
+              <Link to={'/harnesses/' + id + '/edit'}>Back to harness</Link>
+            </ShadButton>
+          }
+        />
+        <p className="my-5 text-muted-foreground">
+          You don't have access to this Harness's working history. Published releases remain
+          available from the harness page.
+        </p>
+      </>
+    );
   return (
     <>
       <PageTitle
