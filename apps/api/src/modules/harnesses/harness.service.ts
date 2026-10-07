@@ -16,6 +16,7 @@ import { harnessRepository as repo } from './harness.repository.js';
 import { discoverSnapshots } from './harness.discovery.js';
 import { recordRevision, treeHash } from './harness.sync.js';
 import { authorize, capabilities, directEdit } from './harness.policy.js';
+import { ratingService } from './harness.ratings.js';
 type HarnessInput = z.infer<typeof createHarnessSchema>;
 type Changes = z.infer<typeof harnessChangesSchema>;
 type ReleaseInput = z.infer<typeof harnessReleaseSchema>;
@@ -60,7 +61,12 @@ export const harnessService = {
     const harness = await repo.get(id, userId);
     if (!harness)
       throw new AppError(404, 'NOT_FOUND', 'Harness unavailable or access is restricted.');
-    return { ...harness, capabilities: await capabilities(id, userId) };
+    const { average, count } = await ratingService.summary(id);
+    return {
+      ...harness,
+      capabilities: await capabilities(id, userId),
+      rating: { average, count },
+    };
   },
   async save(
     id: string,

@@ -12,7 +12,7 @@ export const harnessRepository = {
   async discoverySnapshots(userId?: string, savedOnly = false) {
     return (
       await pool.query(
-        'SELECT h.id,h.name,h.description,h.visibility,h.owner_id AS "ownerId",u.name AS "ownerName",r.id AS "releaseId",r.version,r.files,r.created_at AS "updatedAt" FROM harnesses h JOIN users u ON u.id=h.owner_id JOIN LATERAL (SELECT id,version,files,created_at FROM harness_releases WHERE harness_id=h.id ORDER BY ' +
+        'SELECT h.id,h.name,h.description,h.visibility,h.owner_id AS "ownerId",u.name AS "ownerName",r.id AS "releaseId",r.version,r.files,r.created_at AS "updatedAt",(SELECT round(avg(rating),2)::float8 FROM harness_ratings WHERE harness_id=h.id) AS "ratingAverage",(SELECT count(*)::int FROM harness_ratings WHERE harness_id=h.id) AS "ratingCount" FROM harnesses h JOIN users u ON u.id=h.owner_id JOIN LATERAL (SELECT id,version,files,created_at FROM harness_releases WHERE harness_id=h.id ORDER BY ' +
           releaseOrder +
           ' LIMIT 1) r ON true WHERE (h.visibility=$1 OR h.owner_id=$2 OR EXISTS(SELECT 1 FROM harness_members hm WHERE hm.harness_id=h.id AND hm.user_id=$2)) AND (NOT $3::boolean OR EXISTS(SELECT 1 FROM harness_saves s WHERE s.harness_id=h.id AND s.user_id=$2))',
         ['public', userId ?? null, savedOnly],

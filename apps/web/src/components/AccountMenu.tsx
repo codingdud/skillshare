@@ -1,38 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, LogOut, Pencil, Terminal, UserRound, ShieldCheck } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { notify } from '../app/store';
 import { transport, errorMessage } from '../lib/http';
-import './account-menu.css';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export function AccountMenu({ onSignedOut }: { onSignedOut?: () => void }) {
   const user = useAppSelector((state) => state.auth.user);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const location = useLocation();
-  const menu = useRef<HTMLDetailsElement>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (menu.current) menu.current.open = false;
-  }, [location.pathname]);
-  useEffect(() => {
-    function closeOutside(event: PointerEvent) {
-      if (menu.current && !menu.current.contains(event.target as Node)) menu.current.open = false;
-    }
-    function escape(event: KeyboardEvent) {
-      if (event.key === 'Escape' && menu.current?.open) {
-        menu.current.open = false;
-        menu.current.querySelector('summary')?.focus();
-      }
-    }
-    document.addEventListener('pointerdown', closeOutside);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOutside);
-      document.removeEventListener('keydown', escape);
-    };
-  }, []);
   if (!user) return null;
   async function logout() {
     setBusy(true);
@@ -47,35 +34,57 @@ export function AccountMenu({ onSignedOut }: { onSignedOut?: () => void }) {
     }
   }
   return (
-    <details ref={menu} className="account-menu">
-      <summary className="profile-button" aria-label="Account menu" title="Account menu">
-        <span className="avatar">{user.name[0]?.toUpperCase()}</span>
-        <ChevronDown size={14} />
-      </summary>
-      <div className="account-menu-panel">
-        <div className="account-menu-identity">
-          <strong>{user.name}</strong>
-          <span>{user.email}</span>
-        </div>
-        <Link to="/profile">
-          <UserRound size={16} /> Your profile
-        </Link>
-        <Link to="/profile/edit">
-          <Pencil size={16} /> Edit profile
-        </Link>
-        <Link to="/devices">
-          <Terminal size={16} /> Connected devices
-        </Link>
-        {user.role === 'admin' && (
-          <Link to="/admin">
-            <ShieldCheck size={16} /> Administration
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-10 gap-1.5 rounded-full px-1.5"
+          aria-label="Account menu"
+          title="Account menu"
+        >
+          <Avatar>
+            <AvatarFallback className="bg-primary font-semibold text-primary-foreground">
+              {user.name[0]?.toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <ChevronDown size={14} className="text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60" data-testid="account-menu">
+        <DropdownMenuLabel className="grid gap-0.5 font-normal">
+          <strong className="truncate text-sm font-semibold text-foreground">{user.name}</strong>
+          <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/profile">
+            <UserRound /> Your profile
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/profile/edit">
+            <Pencil /> Edit profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/devices">
+            <Terminal /> Connected devices
+          </Link>
+        </DropdownMenuItem>
+        {user.role === 'admin' && (
+          <DropdownMenuItem asChild>
+            <Link to="/admin">
+              <ShieldCheck /> Administration
+            </Link>
+          </DropdownMenuItem>
         )}
-        <button type="button" disabled={busy} onClick={() => void logout()}>
-          <LogOut size={16} />
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled={busy} onSelect={() => void logout()}>
+          <LogOut />
           {busy ? 'Signing out…' : 'Sign out'}
-        </button>
-      </div>
-    </details>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

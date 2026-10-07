@@ -11,7 +11,11 @@ import {
   type HarnessTemplateKind,
   type HarnessTreeFile,
 } from '@skillshare/contracts';
-import { Button, ErrorBox, Field, Loading } from '../../components/ui';
+import { ErrorBox, Field, Loading } from '../../components/ui';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { selectClass } from './harness-ui';
 
 const SourceDiff = lazy(() =>
   import('../editor/SourceEditor').then((module) => ({ default: module.SourceDiffEditor })),
@@ -80,13 +84,23 @@ export function HarnessTemplatePanel({
     ? configurationPath(runtime, kind as 'mcp' | 'hook' | 'settings', nativeSlug(name))
     : '';
   const existing = files.find((file) => file.path === existingPath);
+  const previewHeight = '320px';
   return (
-    <section className="harness-template" aria-label="Add native files">
-      <div className="harness-template-options">
-        <h2>Add native files</h2>
-        <p>Create native files, edit their content, then add them to your workspace.</p>
+    <section
+      aria-label="Add native files"
+      className="grid max-h-[65vh] shrink-0 gap-6 overflow-auto rounded-xl bg-card p-5 text-card-foreground ring-1 ring-foreground/10 lg:grid-cols-[280px_minmax(0,1fr)]"
+    >
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold text-foreground">Add native files</h2>
+        <p className="mt-1 mb-5 text-sm text-muted-foreground">
+          Create native files, edit their content, then add them to your workspace.
+        </p>
         <Field label="Runtime profile">
-          <select value={runtime} onChange={(event) => setRuntime(event.target.value as HarnessId)}>
+          <select
+            className={selectClass}
+            value={runtime}
+            onChange={(event) => setRuntime(event.target.value as HarnessId)}
+          >
             {selectableHarnesses.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.label}
@@ -96,6 +110,7 @@ export function HarnessTemplatePanel({
         </Field>
         <Field label="File template">
           <select
+            className={selectClass}
             value={kind}
             onChange={(event) => setKind(event.target.value as HarnessTemplateKind)}
           >
@@ -117,11 +132,12 @@ export function HarnessTemplatePanel({
           </select>
         </Field>
         <Field label={kind === 'mcp' ? 'Server name' : 'Template name'}>
-          <input value={name} onChange={(event) => setName(event.target.value)} />
+          <Input value={name} onChange={(event) => setName(event.target.value)} />
         </Field>
         {kind === 'hook' && (
           <Field label="When to run">
             <select
+              className={selectClass}
               value={phase}
               onChange={(event) => setPhase(event.target.value as 'pre' | 'post')}
             >
@@ -131,7 +147,7 @@ export function HarnessTemplatePanel({
           </Field>
         )}
         <a
-          className="text-link"
+          className="text-sm font-medium text-brand underline-offset-4 hover:underline"
           href={harnessReferences[runtime][kind]}
           target="_blank"
           rel="noreferrer"
@@ -139,18 +155,18 @@ export function HarnessTemplatePanel({
           Native format documentation ↗
         </a>
         {kind === 'mcp' && (
-          <p>
+          <p className="mt-3 text-xs text-muted-foreground">
             The example points to localhost:3001. Configure your server and credentials in your
             runtime.
           </p>
         )}
         {kind === 'hook' && (
-          <p>
+          <p className="mt-3 text-xs text-muted-foreground">
             The included Node.js script is a pass-through example. Edit the matcher and command for
             your task.
           </p>
         )}
-        <div className="harness-actions">
+        <div className="mt-5 flex flex-wrap gap-2">
           <Button
             disabled={!preview.result}
             onClick={() => {
@@ -159,69 +175,75 @@ export function HarnessTemplatePanel({
           >
             Apply reviewed files
           </Button>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
         </div>
       </div>
-      <div className="harness-template-preview">
+      <div className="grid min-w-0 content-start gap-3" data-testid="harness-template-preview">
         {preview.error && <ErrorBox message={preview.error} />}
         {preview.error && existing && onOpenExisting && (
-          <Button variant="secondary" onClick={() => onOpenExisting(existing.path)}>
+          <Button variant="outline" className="w-fit" onClick={() => onOpenExisting(existing.path)}>
             Open existing file
           </Button>
         )}
-        <div className="harness-template-modes" role="tablist" aria-label="Template view">
-          <button role="tab" aria-selected={mode === 'edit'} onClick={() => setMode('edit')}>
-            Edit files
-          </button>
-          <button role="tab" aria-selected={mode === 'changes'} onClick={() => setMode('changes')}>
-            Review changes
-          </button>
-        </div>
-        {changed && (
-          <Field label="Review changed files">
-            <select
-              value={active?.path ?? ''}
-              onChange={(event) => setPreviewPath(event.target.value)}
-            >
-              {changed.map((file) => (
-                <option key={file.path} value={file.path}>
-                  {files.some((old) => old.path === file.path) ? 'Modified: ' : 'Added: '}
-                  {file.path}
-                </option>
-              ))}
-            </select>
-          </Field>
-        )}
-        {active && (
-          <Suspense fallback={<Loading />}>
-            {mode === 'changes' ? (
-              <SourceDiff
-                filePath={active.path}
-                before={files.find((file) => file.path === active.path)?.content ?? ''}
-                after={active.content}
-              />
-            ) : (
-              <SourceEditor
-                modelPath={'template:' + id + ':' + active.path}
-                filePath={active.path}
-                value={active.content}
-                readOnly={false}
-                issues={issues.filter((issue) => issue.path === active.path)}
-                onChange={(value) =>
-                  setEdited((previous) => ({
-                    identity,
-                    values: {
-                      ...(previous.identity === identity ? previous.values : {}),
-                      [active.path]: value,
-                    },
-                  }))
-                }
-              />
-            )}
-          </Suspense>
-        )}
+        <Tabs value={mode} onValueChange={(value) => setMode(value as 'edit' | 'changes')}>
+          <TabsList aria-label="Template view">
+            <TabsTrigger value="edit" className="px-3">
+              Edit files
+            </TabsTrigger>
+            <TabsTrigger value="changes" className="px-3">
+              Review changes
+            </TabsTrigger>
+          </TabsList>
+          {changed && (
+            <Field label="Review changed files">
+              <select
+                className={selectClass}
+                value={active?.path ?? ''}
+                onChange={(event) => setPreviewPath(event.target.value)}
+              >
+                {changed.map((file) => (
+                  <option key={file.path} value={file.path}>
+                    {files.some((old) => old.path === file.path) ? 'Modified: ' : 'Added: '}
+                    {file.path}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {active && (
+            <Suspense fallback={<Loading />}>
+              <TabsContent value="changes" className="overflow-hidden rounded-lg">
+                <SourceDiff
+                  height={previewHeight}
+                  filePath={active.path}
+                  before={files.find((file) => file.path === active.path)?.content ?? ''}
+                  after={active.content}
+                />
+              </TabsContent>
+              <TabsContent value="edit" className="overflow-hidden rounded-lg">
+                <SourceEditor
+                  height={previewHeight}
+                  modelPath={'template:' + id + ':' + active.path}
+                  filePath={active.path}
+                  value={active.content}
+                  readOnly={false}
+                  issues={issues.filter((issue) => issue.path === active.path)}
+                  onChange={(value) =>
+                    setEdited((previous) => ({
+                      identity,
+                      values: {
+                        ...(previous.identity === identity ? previous.values : {}),
+                        [active.path]: value,
+                      },
+                    }))
+                  }
+                />
+              </TabsContent>
+            </Suspense>
+          )}
+        </Tabs>
       </div>
     </section>
   );

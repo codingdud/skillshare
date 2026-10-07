@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  ChevronDown,
   FileCode2,
   FolderPlus,
   Maximize2,
@@ -9,6 +11,7 @@ import {
   Rocket,
   Save,
   Upload,
+  X,
 } from 'lucide-react';
 import {
   createHarnessSchema,
@@ -25,10 +28,19 @@ import {
 } from '@skillshare/contracts';
 import { api, errorMessage } from '../../lib/http';
 import { useAppSelector } from '../../app/hooks';
-import { Button, ErrorBox, Field, Loading, PageTitle } from '../../components/ui';
+import { ErrorBox, Field, Loading, PageTitle } from '../../components/ui';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useLayoutMode } from '@/hooks/use-layout-mode';
+import { cn } from '@/lib/utils';
 import { HarnessTemplatePanel } from './HarnessTemplatePanel';
 import { HarnessExplorer, type HarnessFileAction, type HarnessPathTarget } from './HarnessExplorer';
-import './harness-pages.css';
+import { selectClass } from './harness-ui';
+import { RatingSummaryInline } from '../../components/StarRating';
 
 type FileEntry = { path: string; content: string };
 type Harness = {
@@ -42,6 +54,7 @@ type Harness = {
   ownerId: string;
   ownerName: string;
   capabilities: HarnessCapabilities;
+  rating?: { average: number | null; count: number };
 };
 const SourceEditor = lazy(() => import('../editor/SourceEditor'));
 const readFiles = async (list: FileList): Promise<FileEntry[]> =>
@@ -66,6 +79,11 @@ const readFiles = async (list: FileList): Promise<FileEntry[]> =>
     }),
   );
 
+const notice =
+  'shrink-0 rounded-xl border border-brand-border bg-brand-surface px-3.5 py-2 text-sm text-foreground';
+const disclosure =
+  'flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60 [&[data-state=open]>svg:last-child]:rotate-180';
+
 export function HarnessWorkspacePage() {
   const [items, setItems] = useState<Harness[]>([]);
   const [error, setError] = useState('');
@@ -82,30 +100,36 @@ export function HarnessWorkspacePage() {
         title="My Harnesses"
         description="Native agent configuration repositories, edited and released as complete file trees."
         action={
-          <Link className="btn btn-primary" to="/harnesses/new">
-            New Harness
-          </Link>
+          <Button asChild size="lg" className="h-10 px-4 font-semibold">
+            <Link to="/harnesses/new">New Harness</Link>
+          </Button>
         }
       />
       {error && <ErrorBox message={error} />}
-      <div className="harness-grid">
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((h) => (
-          <Link key={h.id} className="harness-card" to={'/harnesses/' + h.id + '/edit'}>
-            <span className="harness-status">
+          <Link
+            key={h.id}
+            className="group grid content-start gap-2 rounded-xl border bg-card p-5 text-card-foreground outline-none transition-shadow hover:shadow-md focus-visible:ring-3 focus-visible:ring-ring/50"
+            to={'/harnesses/' + h.id + '/edit'}
+          >
+            <Badge variant="secondary" className="w-fit">
               {h.visibility} · {h.files.length} files
-            </span>
-            <h2>{h.name}</h2>
-            <p>{h.description}</p>
-            <small>{h.slug}</small>
+            </Badge>
+            <h2 className="text-lg font-semibold text-heading group-hover:text-brand">{h.name}</h2>
+            <p className="line-clamp-3 text-sm text-muted-foreground">{h.description}</p>
+            <small className="font-mono text-xs text-text-faint">{h.slug}</small>
           </Link>
         ))}
         {!items.length && !error && (
-          <div className="harness-empty">
-            <h2>Start with the files you already use</h2>
-            <p>Upload an agent file or a whole native configuration folder.</p>
-            <Link className="btn btn-primary" to="/harnesses/new">
-              Create a Harness
-            </Link>
+          <div className="col-span-full grid justify-items-start gap-3 rounded-xl border border-dashed bg-card p-8">
+            <h2 className="text-lg font-semibold text-heading">Start with the files you already use</h2>
+            <p className="text-sm text-muted-foreground">
+              Upload an agent file or a whole native configuration folder.
+            </p>
+            <Button asChild size="lg" className="h-10 px-4 font-semibold">
+              <Link to="/harnesses/new">Create a Harness</Link>
+            </Button>
           </div>
         )}
       </div>
@@ -157,98 +181,123 @@ export function NewHarnessPage() {
   }
   return (
     <>
-      <Link className="back-link" to="/harnesses">
-        <ArrowLeft size={15} /> My Harnesses
-      </Link>
+      <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground">
+        <Link to="/harnesses">
+          <ArrowLeft /> My Harnesses
+        </Link>
+      </Button>
       <PageTitle
         eyebrow="NATIVE FILE REPOSITORY"
         title="Create a Harness"
         description="Bring the files you already use. Keep their paths together in one editor and one release."
       />
-      <form className="harness-create panel content-panel" onSubmit={submit}>
-        {error && <ErrorBox message={error} />}
-        <Field label="Harness name">
-          <input
-            required
-            minLength={2}
-            value={form.name}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                name: e.target.value,
-                slug: e.target.value
-                  .toLowerCase()
-                  .replace(/[^a-z0-9]+/g, '-')
-                  .replace(/^-|-$/g, ''),
-              })
-            }
-            placeholder="AI Delivery Toolkit"
-          />
-        </Field>
-        <Field label="URL slug">
-          <input
-            required
-            value={form.slug}
-            onChange={(e) => setForm({ ...form, slug: e.target.value })}
-          />
-        </Field>
-        <Field label="What does this repository help people do?">
-          <textarea
-            required
-            minLength={10}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="Agents and instructions for planning, implementing, and reviewing a feature."
-          />
-        </Field>
-        <Field label="Release visibility">
-          <select
-            value={form.visibility}
-            onChange={(e) => setForm({ ...form, visibility: e.target.value as Visibility })}
-          >
-            <option value="private">Private</option>
-            <option value="team">Team</option>
-            <option value="public">Public</option>
-          </select>
-        </Field>
-        <section className="harness-import">
-          <div>
-            <h2>Start with native files</h2>
-            <p>
-              Import one file or a repository folder. Review preserved paths before your first
-              release.
-            </p>
-          </div>
-          <label className="btn btn-secondary">
-            <Upload size={16} /> Add files
-            <input hidden type="file" multiple onChange={(e) => void importFiles(e.target.files)} />
-          </label>
-          <label className="btn btn-secondary">
-            <FolderPlus size={16} /> Add folder
-            <input
-              hidden
-              type="file"
-              multiple
-              {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
-              onChange={(e) => void importFiles(e.target.files)}
-            />
-          </label>
-          {files.length > 0 && (
-            <ul className="harness-import-list">
-              {files.map((f) => (
-                <li key={f.path}>
-                  <FileCode2 size={15} />
-                  {f.path}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <Button disabled={busy}>{busy ? 'Creating…' : 'Create Harness'}</Button>
-      </form>
+      <Card className="max-w-3xl">
+        <CardContent>
+          <form className="grid" onSubmit={submit}>
+            {error && <ErrorBox message={error} />}
+            <Field label="Harness name">
+              <Input
+                required
+                minLength={2}
+                value={form.name}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    name: e.target.value,
+                    slug: e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/^-|-$/g, ''),
+                  })
+                }
+                placeholder="AI Delivery Toolkit"
+              />
+            </Field>
+            <Field label="URL slug">
+              <Input
+                required
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              />
+            </Field>
+            <Field label="What does this repository help people do?">
+              <Textarea
+                required
+                minLength={10}
+                className="min-h-24"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Agents and instructions for planning, implementing, and reviewing a feature."
+              />
+            </Field>
+            <Field label="Release visibility">
+              <select
+                className={selectClass}
+                value={form.visibility}
+                onChange={(e) => setForm({ ...form, visibility: e.target.value as Visibility })}
+              >
+                <option value="private">Private</option>
+                <option value="team">Team</option>
+                <option value="public">Public</option>
+              </select>
+            </Field>
+            <section className="mb-6 grid gap-4 rounded-xl border border-dashed bg-muted/40 p-5">
+              <div className="grid gap-1">
+                <h2 className="text-base font-semibold text-heading">Start with native files</h2>
+                <p className="text-sm text-muted-foreground">
+                  Import one file or a repository folder. Review preserved paths before your first
+                  release.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" className="cursor-pointer">
+                  <label>
+                    <Upload /> Add files
+                    <input
+                      hidden
+                      type="file"
+                      multiple
+                      onChange={(e) => void importFiles(e.target.files)}
+                    />
+                  </label>
+                </Button>
+                <Button asChild variant="outline" className="cursor-pointer">
+                  <label>
+                    <FolderPlus /> Add folder
+                    <input
+                      hidden
+                      type="file"
+                      multiple
+                      {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+                      onChange={(e) => void importFiles(e.target.files)}
+                    />
+                  </label>
+                </Button>
+              </div>
+              {files.length > 0 && (
+                <ul className="grid gap-1.5">
+                  {files.map((f) => (
+                    <li
+                      key={f.path}
+                      className="flex min-w-0 items-center gap-2 font-mono text-xs text-foreground"
+                    >
+                      <FileCode2 size={15} className="shrink-0 text-muted-foreground" />
+                      <span className="truncate">{f.path}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <Button size="lg" className="h-10 justify-self-start px-4" disabled={busy}>
+              {busy ? 'Creating…' : 'Create Harness'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </>
   );
 }
+
 
 export function HarnessEditorPage() {
   const { id } = useParams();
@@ -271,6 +320,7 @@ function HarnessEditor({ id }: { id: string }) {
   const [templateSession, setTemplateSession] = useState(0);
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
+  useLayoutMode(expanded ? 'editor-expanded' : 'editor');
   const [pathRequest, setPathRequest] = useState<{
     action: 'new-file' | 'new-folder' | 'rename';
     target: HarnessPathTarget;
@@ -279,6 +329,7 @@ function HarnessEditor({ id }: { id: string }) {
   const [publishing, setPublishing] = useState(false);
   const [remoteDraft, setRemoteDraft] = useState<Harness | null>(null);
   const [shareMessage, setShareMessage] = useState('');
+  const [dismissedReleaseNotice, setDismissedReleaseNotice] = useState('');
   const [harness, setHarness] = useState<Harness | null>(null),
     [files, setFiles] = useState<FileEntry[]>([]),
     [selected, setSelected] = useState(''),
@@ -299,7 +350,7 @@ function HarnessEditor({ id }: { id: string }) {
     setOpenTabs(selected ? [selected] : []);
   }, [releaseId]);
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 720px)');
+    const media = window.matchMedia('(max-width: 768px)');
     setCollapsed(media.matches);
     const change = () => setCollapsed(media.matches);
     media.addEventListener('change', change);
@@ -311,11 +362,13 @@ function HarnessEditor({ id }: { id: string }) {
     setFiles(value);
   }
   useEffect(() => {
+    let cancelled = false;
     void Promise.all([
       api.get<Harness>('/harnesses/' + id),
       api.get<{ items: { id: string; version: string }[] }>('/harnesses/' + id + '/releases'),
     ])
       .then(([a, b]) => {
+        if (cancelled) return;
         setHarness(a.data);
         changeFiles(a.data.files || []);
         baseline.current = JSON.stringify(a.data.files || []);
@@ -333,7 +386,12 @@ function HarnessEditor({ id }: { id: string }) {
           setVersion(nextStablePatch(b.data.items[0].version));
         }
       })
-      .catch((e) => setError(errorMessage(e)));
+      .catch((e) => {
+        if (!cancelled) setError(errorMessage(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
   useEffect(() => {
     let cancelled = false;
@@ -385,7 +443,7 @@ function HarnessEditor({ id }: { id: string }) {
       setError(checked.error.issues[0]?.message || 'Invalid file tree.');
       return null;
     }
-    setStatus('Saving…');
+    flushSync(() => setStatus('Saving…'));
     setError('');
     const request = (async () => {
       try {
@@ -692,62 +750,73 @@ function HarnessEditor({ id }: { id: string }) {
   }
   return (
     <div
-      className={
-        'harness-editor ' +
-        (collapsed ? 'tree-collapsed ' : '') +
-        (expanded ? 'editor-expanded' : '')
-      }
+      data-testid="harness-editor"
+      data-tree-collapsed={collapsed ? 'true' : 'false'}
+      data-editor-expanded={expanded ? 'true' : 'false'}
+      className="flex h-full min-h-0 flex-col gap-2 overflow-auto"
     >
-      <header className="harness-editor-header">
-        <div>
-          <Link className="back-link" to="/harnesses">
-            <ArrowLeft size={14} /> Harnesses
-          </Link>
-          <h1 title={harness.name}>{harness.name}</h1>
-          <span>
-            {harness.visibility} ·{' '}
-            {releaseId ? 'Release' : canReadDraft ? 'Draft' : 'Latest release'} ·{' '}
-            {!canEdit ? 'Read only' : status}
+      <header
+        className="grid shrink-0 gap-2 rounded-xl border bg-card px-3 py-2"
+        data-testid="harness-editor-header"
+      >
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 md:grid-cols-[auto_minmax(0,1fr)_auto]">
+          <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
+            <Link to="/harnesses">
+              <ArrowLeft /> Harnesses
+            </Link>
+          </Button>
+          <h1 title={harness.name} className="truncate text-lg font-semibold text-heading">
+            {harness.name}
+          </h1>
+          <span className="col-span-full text-xs text-muted-foreground md:col-span-1 md:whitespace-nowrap">
+            {harness.visibility} · {releaseId ? 'Release' : canReadDraft ? 'Draft' : 'Latest release'}{' '}
+            · {!canEdit ? 'Read only' : status}
             {' · '}
             <Link
+              className="font-medium text-brand hover:underline"
               to={'/users/' + harness.ownerId}
               title={'View ' + harness.ownerName + "'s profile"}
             >
               {harness.ownerName}
             </Link>
+            {harness.rating && (
+              <>
+                {' · '}
+                <Link
+                  className="rounded hover:text-primary"
+                  to={'/harnesses/' + harness.id + '/reviews'}
+                  title="Ratings and reviews"
+                >
+                  <RatingSummaryInline
+                    average={harness.rating.average}
+                    count={harness.rating.count}
+                  />
+                </Link>
+              </>
+            )}
           </span>
         </div>
-        <div className="harness-actions">
-          <Link className="btn btn-secondary" to={'/harnesses/' + id + '/cli'}>
-            Use with CLI
-          </Link>
-          {canReadDraft && (
-            <Link className="btn btn-secondary" to={'/harnesses/' + id + '/history'}>
-              History
-            </Link>
-          )}
-          {user && (
-            <Link className="btn btn-secondary" to={'/harnesses/' + id + '/changes'}>
-              Changes & access
-            </Link>
-          )}
+        <div className="flex flex-wrap items-center gap-1.5">
           <Button
-            variant="secondary"
+            variant="outline"
+            size="sm"
             aria-label={expanded ? 'Restore layout' : 'Expand editor'}
             title={expanded ? 'Restore layout' : 'Expand editor'}
             aria-pressed={expanded}
             onClick={() => setExpanded(!expanded)}
           >
-            {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {expanded ? <Minimize2 /> : <Maximize2 />}
           </Button>
           <Button
-            className="harness-mobile-files"
-            variant="secondary"
+            className="md:hidden"
+            variant="outline"
+            size="sm"
             onClick={() => setCollapsed(!collapsed)}
           >
             {collapsed ? 'Show files' : 'Hide files'}
           </Button>
           <select
+            className={cn(selectClass, 'h-7 w-auto min-w-36 text-xs max-md:flex-1')}
             aria-label="Repository version"
             value={releaseId}
             onChange={(event) => {
@@ -765,12 +834,13 @@ function HarnessEditor({ id }: { id: string }) {
             ))}
           </select>
           {releases.length > 0 && (
-            <Button variant="secondary" onClick={() => void downloadRelease()}>
+            <Button variant="outline" size="sm" onClick={() => void downloadRelease()}>
               Download {selectedRelease ? 'v' + selectedRelease.version : 'latest release'}
             </Button>
           )}
           <Button
-            variant="secondary"
+            variant="outline"
+            size="sm"
             onClick={() => {
               void navigator.clipboard
                 .writeText(window.location.href)
@@ -783,13 +853,14 @@ function HarnessEditor({ id }: { id: string }) {
             Copy link
           </Button>
           {canEdit && (
-            <Button variant="secondary" onClick={() => openTemplate('skill')}>
+            <Button variant="outline" size="sm" onClick={() => openTemplate('skill')}>
               New skill
             </Button>
           )}
           {canEdit && (
             <Button
-              variant="secondary"
+              variant="outline"
+              size="sm"
               onClick={() => fileAction('mcp', { path: selected, folder: false })}
             >
               MCP configuration
@@ -797,6 +868,7 @@ function HarnessEditor({ id }: { id: string }) {
           )}
           {harness.capabilities.canEdit && !harness.capabilities.requireReview && releaseId && (
             <Button
+              size="sm"
               onClick={() => {
                 const next = new URLSearchParams(params);
                 next.delete('release');
@@ -810,64 +882,87 @@ function HarnessEditor({ id }: { id: string }) {
             </Button>
           )}
           {canEdit && (
-            <Button variant="secondary" onClick={() => openTemplate('mcp')}>
+            <Button variant="outline" size="sm" onClick={() => openTemplate('mcp')}>
               Add native files
             </Button>
           )}
           {harness.capabilities.canPublish && !releaseId && (
-            <Button variant="secondary" onClick={() => setShowPublish(!showPublish)}>
-              <Rocket size={16} /> Review & publish
+            <Button variant="outline" size="sm" onClick={() => setShowPublish(!showPublish)}>
+              <Rocket /> Review & publish
             </Button>
           )}
         </div>
       </header>
       {harness.capabilities.requireReview && canReadDraft && (
-        <p className="harness-release-notice">
+        <p className={notice}>
           Changes require approval. Open Changes & access to edit a proposal without changing the
           draft.
         </p>
       )}
-      {shareMessage && <p role="status">{shareMessage}</p>}
-      {releaseId && (
-        <p className="harness-release-notice">
-          Published releases are read-only.
-          {isOwner
-            ? ' Use Edit draft to change skills or MCP configuration.'
-            : ' Editing requires owner access.'}
+      {shareMessage && (
+        <p role="status" className="shrink-0 text-xs text-muted-foreground">
+          {shareMessage}
         </p>
       )}
-      {showPublish && (
-        <form className="harness-publish" onSubmit={publish}>
-          <Field label="Release version">
-            <input required value={version} onChange={(e) => setVersion(e.target.value)} />
-          </Field>
-          <Field label="Release notes">
-            <input
-              required
-              minLength={5}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Field>
+      {releaseId && dismissedReleaseNotice !== releaseId && (
+        <div className={cn(notice, 'flex items-start justify-between gap-3')}>
           <p>
+            Published releases are read-only.
+            {isOwner
+              ? ' Use Edit draft to change skills or MCP configuration.'
+              : ' Editing requires owner access.'}
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="-my-1 -mr-1.5 shrink-0"
+            aria-label="Dismiss message"
+            onClick={() => setDismissedReleaseNotice(releaseId)}
+          >
+            <X />
+          </Button>
+        </div>
+      )}
+      {showPublish && (
+        <form className="grid shrink-0 gap-3 rounded-xl border bg-card p-4" onSubmit={publish}>
+          <div className="grid gap-x-4 sm:grid-cols-2">
+            <Field label="Release version">
+              <Input required value={version} onChange={(e) => setVersion(e.target.value)} />
+            </Field>
+            <Field label="Release notes">
+              <Input
+                required
+                minLength={5}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </Field>
+          </div>
+          <p className="text-sm text-muted-foreground">
             {files.length} files · {inspection.components.length} components ·{' '}
             {configurationErrors.length} errors
           </p>
-          <details className="w-full">
-            <summary>Review all {files.length} files in this release</summary>
-            <ul>
-              {files.map((file) => (
-                <li key={file.path}>
-                  <code>{file.path}</code>
-                </li>
-              ))}
-            </ul>
-            <p>
-              MCP processes, hooks, and settings are included. Review their commands and permissions
-              in the editor before publishing.
-            </p>
-          </details>
-          <Button disabled={publishing || configurationErrors.length > 0}>
+          <Collapsible className="rounded-lg border">
+            <CollapsibleTrigger className={disclosure}>
+              Review all {files.length} files in this release
+              <ChevronDown className="size-4 transition-transform" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="grid max-h-60 gap-2 overflow-auto border-t px-3 py-3 text-sm">
+              <ul className="grid gap-1">
+                {files.map((file) => (
+                  <li key={file.path}>
+                    <code className="font-mono text-xs">{file.path}</code>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-muted-foreground">
+                MCP processes, hooks, and settings are included. Review their commands and
+                permissions in the editor before publishing.
+              </p>
+            </CollapsibleContent>
+          </Collapsible>
+          <Button className="justify-self-start" disabled={publishing || configurationErrors.length > 0}>
             {publishing ? 'Publishing…' : 'Publish Harness release'}
           </Button>
         </form>
@@ -893,16 +988,19 @@ function HarnessEditor({ id }: { id: string }) {
       )}
       {error && <ErrorBox message={error} />}
       {status === 'Save failed' && canEdit && (
-        <div className="harness-recovery">
-          <p>Your edits are retained. Retry saving, or compare with the latest saved draft.</p>
-          <Button variant="secondary" onClick={() => void save()}>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-warning/40 bg-warning-surface p-3">
+          <p className="mr-auto text-sm">
+            Your edits are retained. Retry saving, or compare with the latest saved draft.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void save()}>
             Retry save
           </Button>
-          <Button variant="secondary" onClick={() => void compareRemote()}>
+          <Button variant="outline" size="sm" onClick={() => void compareRemote()}>
             Compare latest
           </Button>
           <Button
-            variant="secondary"
+            variant="outline"
+            size="sm"
             onClick={() => {
               const url = URL.createObjectURL(
                 new Blob([JSON.stringify(files, null, 2)], { type: 'application/json' }),
@@ -919,10 +1017,14 @@ function HarnessEditor({ id }: { id: string }) {
         </div>
       )}
       {remoteDraft && (
-        <section className="harness-recovery">
-          <h2>Compare saved draft (revision {remoteDraft.revision})</h2>
-          <p>Local revision {revision}. Review differences before choosing how to recover.</p>
-          <ul>
+        <section className="grid shrink-0 gap-3 rounded-xl border border-warning/40 bg-warning-surface p-4">
+          <h2 className="text-base font-semibold text-heading">
+            Compare saved draft (revision {remoteDraft.revision})
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Local revision {revision}. Review differences before choosing how to recover.
+          </p>
+          <ul className="grid gap-2">
             {Array.from(
               new Set([
                 ...files.map((file) => file.path),
@@ -933,147 +1035,229 @@ function HarnessEditor({ id }: { id: string }) {
                 remote = remoteDraft.files.find((file) => file.path === path);
               return local?.content !== remote?.content ? (
                 <li key={path}>
-                  <details>
-                    <summary>{path}</summary>
-                    <div className="harness-conflict-content">
-                      <div>
-                        <strong>Latest saved</strong>
-                        <pre>{remote?.content ?? '(missing)'}</pre>
+                  <Collapsible className="rounded-lg border bg-card">
+                    <CollapsibleTrigger className={disclosure}>
+                      <span className="truncate font-mono text-xs">{path}</span>
+                      <ChevronDown className="size-4 shrink-0 transition-transform" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="grid gap-3 border-t p-3 md:grid-cols-2">
+                      <div className="grid min-w-0 gap-1">
+                        <strong className="text-sm">Latest saved</strong>
+                        <pre className="max-h-60 overflow-auto rounded-md bg-muted p-2 font-mono text-xs">
+                          {remote?.content ?? '(missing)'}
+                        </pre>
                       </div>
-                      <div>
-                        <strong>My draft</strong>
-                        <pre>{local?.content ?? '(missing)'}</pre>
+                      <div className="grid min-w-0 gap-1">
+                        <strong className="text-sm">My draft</strong>
+                        <pre className="max-h-60 overflow-auto rounded-md bg-muted p-2 font-mono text-xs">
+                          {local?.content ?? '(missing)'}
+                        </pre>
                       </div>
-                    </div>
-                  </details>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </li>
               ) : null;
             })}
           </ul>
-          <Button variant="secondary" onClick={() => acceptRemote(true)}>
-            Keep my draft for the next save
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              if (
-                window.confirm(
-                  'Replace local edits with the latest saved draft? Download your draft first if you need a copy.',
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => acceptRemote(true)}>
+              Keep my draft for the next save
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Replace local edits with the latest saved draft? Download your draft first if you need a copy.',
+                  )
                 )
-              )
-                acceptRemote(false);
-            }}
-          >
-            Reload latest
-          </Button>
-          <Button variant="secondary" onClick={() => setRemoteDraft(null)}>
-            Cancel
-          </Button>
+                  acceptRemote(false);
+              }}
+            >
+              Reload latest
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setRemoteDraft(null)}>
+              Cancel
+            </Button>
+          </div>
         </section>
       )}
       {deleted && canEdit && (
-        <div className="harness-undo" role="status">
-          <span>
+        <div
+          className="flex shrink-0 items-center gap-3 rounded-xl border border-brand-border bg-brand-surface px-3.5 py-2 text-sm"
+          role="status"
+        >
+          <span className="mr-auto">
             Deleted {deleted.length} {deleted.length === 1 ? deleted[0]?.path : 'files'}
           </span>
-          <button onClick={() => void undoDelete()}>Undo</button>
-          <button aria-label="Dismiss undo" onClick={() => setDeleted(null)}>
-            ×
-          </button>
+          <Button variant="outline" size="sm" onClick={() => void undoDelete()}>
+            Undo
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Dismiss undo"
+            onClick={() => setDeleted(null)}
+          >
+            <X />
+          </Button>
         </div>
       )}
-      <div className="harness-workspace">
-        <aside className="harness-tree">
-          <HarnessExplorer
-            files={viewFiles}
-            selected={selected}
-            onSelect={setSelected}
-            canEdit={canEdit}
-            onAction={fileAction}
-          />
-          {pathRequest && canEdit && (
-            <form className="harness-path-form" onSubmit={createPath}>
-              <Field
-                label={
-                  pathRequest.action === 'new-folder'
-                    ? 'Folder path'
-                    : pathRequest.action === 'rename'
-                      ? 'New path'
-                      : 'File path'
-                }
-              >
-                <input
-                  autoFocus
-                  required
-                  value={pathValue}
-                  onChange={(event) => setPathValue(event.target.value)}
-                  onFocus={(event) => event.target.select()}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') setPathRequest(null);
-                  }}
-                />
-              </Field>
-              <Button>{pathRequest.action === 'rename' ? 'Rename' : 'Create'}</Button>
-              <Button type="button" variant="secondary" onClick={() => setPathRequest(null)}>
-                Cancel
-              </Button>
-            </form>
+      <div
+        className={cn(
+          'grid min-h-[200px] flex-[1_0_200px] overflow-hidden rounded-xl border bg-card',
+          collapsed
+            ? 'grid-cols-[0_minmax(0,1fr)]'
+            : 'grid-cols-[160px_minmax(0,1fr)] md:grid-cols-[260px_minmax(0,1fr)]',
+        )}
+      >
+        <aside
+          className={cn(
+            'relative flex min-h-0 min-w-0 flex-col border-r bg-muted/40',
+            collapsed && 'w-0 border-0',
           )}
-          {canEdit && (
-            <div className="harness-import-toolbar">
-              <label className="btn btn-secondary">
-                Import files
-                <input
-                  hidden
-                  type="file"
-                  multiple
-                  onChange={(event) => void addUpload(event.target.files)}
-                />
-              </label>
-              <label className="btn btn-secondary">
-                Import folder
-                <input
-                  hidden
-                  type="file"
-                  multiple
-                  {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
-                  onChange={(event) => void addUpload(event.target.files)}
-                />
-              </label>
+        >
+          <div className={cn('flex min-h-0 flex-1 flex-col', collapsed && 'hidden')}>
+            <HarnessExplorer
+              files={viewFiles}
+              selected={selected}
+              onSelect={setSelected}
+              canEdit={canEdit}
+              onAction={fileAction}
+            />
+            <div className="flex max-h-[50%] shrink-0 flex-col overflow-auto border-t">
+              {pathRequest && canEdit && (
+                <form
+                  className="grid gap-2 border-b p-3"
+                  data-testid="harness-path-form"
+                  onSubmit={createPath}
+                >
+                  <Field
+                    label={
+                      pathRequest.action === 'new-folder'
+                        ? 'Folder path'
+                        : pathRequest.action === 'rename'
+                          ? 'New path'
+                          : 'File path'
+                    }
+                  >
+                    <Input
+                      autoFocus
+                      required
+                      className="font-mono text-xs md:text-xs"
+                      value={pathValue}
+                      onChange={(event) => setPathValue(event.target.value)}
+                      onFocus={(event) => event.target.select()}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setPathRequest(null);
+                      }}
+                    />
+                  </Field>
+                  <div className="flex gap-2">
+                    <Button size="sm">{pathRequest.action === 'rename' ? 'Rename' : 'Create'}</Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPathRequest(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
+              {canEdit && (
+                <div className="flex flex-wrap gap-2 border-b p-3">
+                  <Button asChild variant="outline" size="sm" className="cursor-pointer">
+                    <label>
+                      Import files
+                      <input
+                        hidden
+                        type="file"
+                        multiple
+                        onChange={(event) => void addUpload(event.target.files)}
+                      />
+                    </label>
+                  </Button>
+                  <Button asChild variant="outline" size="sm" className="cursor-pointer">
+                    <label>
+                      Import folder
+                      <input
+                        hidden
+                        type="file"
+                        multiple
+                        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+                        onChange={(event) => void addUpload(event.target.files)}
+                      />
+                    </label>
+                  </Button>
+                </div>
+              )}
+              <Collapsible>
+                <CollapsibleTrigger className={cn(disclosure, 'text-xs')}>
+                  Components ({inspection.components.length})
+                  <ChevronDown className="size-4 transition-transform" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="grid gap-1 px-2 pb-3">
+                  {inspection.components.map((component, index) => (
+                    <button
+                      type="button"
+                      key={component.path + ':' + index}
+                      className="grid min-w-0 gap-0.5 rounded-md px-2 py-1.5 text-left text-xs outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60"
+                      onClick={() => setSelected(component.path)}
+                    >
+                      <span className="truncate font-medium text-foreground">
+                        {component.kind.toUpperCase()} · {component.name}
+                      </span>
+                      <small className="truncate text-muted-foreground">{component.runtime}</small>
+                      <small className="truncate text-muted-foreground">{component.detail}</small>
+                    </button>
+                  ))}
+                  <p className="px-2 text-xs text-muted-foreground">
+                    Configuration preview. Connections and hook commands have not been executed.
+                  </p>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
-          )}
-          <details className="harness-components">
-            <summary>Components ({inspection.components.length})</summary>
-            {inspection.components.map((component, index) => (
-              <button
-                key={component.path + ':' + index}
-                onClick={() => setSelected(component.path)}
-              >
-                <span>
-                  {component.kind.toUpperCase()} · {component.name}
-                </span>
-                <small>{component.runtime}</small>
-                <small>{component.detail}</small>
-              </button>
-            ))}
-            <p>Configuration preview. Connections and hook commands have not been executed.</p>
-          </details>
+          </div>
           <button
-            className="harness-tree-collapse"
+            type="button"
+            className={cn(
+              'absolute top-2 z-10 hidden h-8 w-5 items-center justify-center rounded-r-md border bg-card text-lg text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60 md:flex',
+              collapsed ? 'left-0' : 'right-0 translate-x-full',
+            )}
             onClick={() => setCollapsed(!collapsed)}
             aria-label={collapsed ? 'Expand file tree' : 'Collapse file tree'}
           >
             {collapsed ? '›' : '‹'}
           </button>
         </aside>
-        <main className="harness-editor-main">
-          <div className="harness-file-tabs" role="tablist" aria-label="Open files">
+        <div
+          className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+          data-testid="harness-editor-main"
+        >
+          <div
+            className="flex shrink-0 overflow-x-auto border-b bg-muted/40"
+            role="tablist"
+            aria-label="Open files"
+          >
             {openTabs
               .filter((path) => viewFiles.some((file) => file.path === path))
               .map((path) => (
-                <div key={path} className={selected === path ? 'active' : ''}>
+                <div
+                  key={path}
+                  className={cn(
+                    'flex shrink-0 items-center border-r border-b-2',
+                    selected === path
+                      ? 'border-b-brand bg-card text-foreground'
+                      : 'border-b-transparent text-muted-foreground hover:bg-muted',
+                  )}
+                >
                   <button
+                    type="button"
                     role="tab"
+                    className="max-w-48 truncate py-1.5 pr-1 pl-3 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                     aria-selected={selected === path}
                     title={path}
                     onClick={() => setSelected(path)}
@@ -1081,6 +1265,8 @@ function HarnessEditor({ id }: { id: string }) {
                     {path.split('/').at(-1)}
                   </button>
                   <button
+                    type="button"
+                    className="mr-1 rounded px-1.5 text-base leading-none text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
                     aria-label={'Close ' + path}
                     onClick={() => {
                       const next = openTabs.filter((item) => item !== path);
@@ -1097,58 +1283,86 @@ function HarnessEditor({ id }: { id: string }) {
             <Loading />
           ) : active ? (
             <>
-              <div className="harness-file-heading">
-                <span title={active.path}>
-                  <FileCode2 size={15} />
-                  {active.path}
+              <div
+                className="flex min-h-9 shrink-0 items-center justify-between gap-2 border-b px-3"
+                data-testid="harness-file-heading"
+              >
+                <span
+                  className="flex min-w-0 items-center gap-2 font-mono text-xs text-muted-foreground"
+                  title={active.path}
+                >
+                  <FileCode2 size={15} className="shrink-0" />
+                  <span className="truncate">{active.path}</span>
                 </span>
                 {canEdit && (
-                  <button onClick={() => void save()}>
-                    <Save size={15} /> Save now
-                  </button>
+                  <Button variant="ghost" size="xs" onClick={() => void save()}>
+                    <Save /> Save now
+                  </Button>
                 )}
               </div>
-              <div className="harness-source-editor">
-                <Suspense fallback={<Loading />}>
-                  <SourceEditor
-                    modelPath={'harness:' + id + ':' + (releaseId || 'draft') + ':' + active.path}
-                    filePath={active.path}
-                    value={active.content}
-                    readOnly={!canEdit}
-                    onChange={(value) =>
-                      canEdit &&
-                      changeFiles((previous) =>
-                        previous.map((f) => (f.path === selected ? { ...f, content: value } : f)),
-                      )
-                    }
-                    issues={inspection.issues.filter((issue) => issue.path === active.path)}
-                    onSave={() => {
-                      if (canEdit) void save();
-                    }}
-                  />
-                </Suspense>
+              <div
+                className="relative min-h-0 flex-1 overflow-hidden"
+                data-testid="harness-source-editor"
+              >
+                <div className="absolute inset-0">
+                  <Suspense fallback={<Loading />}>
+                    <SourceEditor
+                      height="100%"
+                      modelPath={'harness:' + id + ':' + (releaseId || 'draft') + ':' + active.path}
+                      filePath={active.path}
+                      value={active.content}
+                      readOnly={!canEdit}
+                      onChange={(value) =>
+                        canEdit &&
+                        changeFiles((previous) =>
+                          previous.map((f) => (f.path === selected ? { ...f, content: value } : f)),
+                        )
+                      }
+                      issues={inspection.issues.filter((issue) => issue.path === active.path)}
+                      onSave={() => {
+                        if (canEdit) void save();
+                      }}
+                    />
+                  </Suspense>
+                </div>
               </div>
             </>
           ) : (
-            <div className="harness-empty">
-              <h2>Your files live here</h2>
-              <p>Create a file or import a folder.</p>
+            <div className="grid flex-1 place-content-center gap-1 p-8 text-center">
+              <h2 className="text-base font-semibold text-heading">Your files live here</h2>
+              <p className="text-sm text-muted-foreground">Create a file or import a folder.</p>
             </div>
           )}
           {inspection.issues.length > 0 && (
-            <details className="harness-diagnostics" open={configurationErrors.length > 0}>
-              <summary>
-                {configurationErrors.length} errors ·{' '}
-                {inspection.issues.length - configurationErrors.length} notices
-              </summary>
-              {inspection.issues.map((issue, index) => (
-                <button key={index} onClick={() => setSelected(issue.path)}>
-                  {issue.severity.toUpperCase()}: {issue.path} — {issue.message}
-                </button>
-              ))}
-            </details>
+            <Collapsible
+              className="shrink-0 border-t bg-muted/40"
+              defaultOpen={configurationErrors.length > 0}
+            >
+              <CollapsibleTrigger className={cn(disclosure, 'text-xs')}>
+                <span>
+                  {configurationErrors.length} errors ·{' '}
+                  {inspection.issues.length - configurationErrors.length} notices
+                </span>
+                <ChevronDown className="size-4 transition-transform" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="grid max-h-40 gap-1 overflow-auto px-2 pb-2">
+                {inspection.issues.map((issue, index) => (
+                  <button
+                    type="button"
+                    key={index}
+                    className={cn(
+                      'rounded-md px-2 py-1.5 text-left text-xs outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60',
+                      issue.severity === 'error' ? 'text-destructive' : 'text-foreground',
+                    )}
+                    onClick={() => setSelected(issue.path)}
+                  >
+                    {issue.severity.toUpperCase()}: {issue.path} — {issue.message}
+                  </button>
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
           )}
-        </main>
+        </div>
       </div>
     </div>
   );

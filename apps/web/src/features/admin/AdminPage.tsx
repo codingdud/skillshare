@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Activity,
@@ -27,11 +27,30 @@ import {
   PageTitle,
   formatDate,
 } from '../../components/ui';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { useResource } from '../../lib/useResource';
 import { api, errorMessage } from '../../lib/http';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { sessionChanged } from '../auth/authSlice';
-import './admin.css';
 
 const views = ['overview', 'users', 'harnesses', 'activity', 'monitoring'] as const;
 type View = (typeof views)[number];
@@ -42,7 +61,15 @@ const labels: Record<View, string> = {
   activity: 'Activity log',
   monitoring: 'Monitoring',
 };
+const chartColors = { users: '#818cf8', releases: '#34d399', revisions: '#fbbf24' } as const;
 const number = (value: number) => value.toLocaleString();
+const linkClass = 'text-primary underline-offset-4 hover:underline';
+const selectClass =
+  'h-10 w-full min-w-40 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
+const panelClass = 'gap-0 py-0';
+const headCell = 'h-11 px-5 font-semibold text-muted-foreground';
+const bodyCell = 'px-5 py-3.5';
+const subText = 'mt-1 block max-w-56 text-xs font-normal whitespace-normal text-muted-foreground';
 function useAdminResource<T>(url: string) {
   const resource = useResource<T>(url);
   const dispatch = useAppDispatch();
@@ -67,6 +94,25 @@ function Resource({
   if (resource.error) return <ErrorBox message={resource.error} retry={resource.reload} />;
   return children;
 }
+function SectionHeading({
+  title,
+  description,
+  aside,
+}: {
+  title: string;
+  description?: string;
+  aside?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-5 sm:px-6">
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+      </div>
+      {aside}
+    </div>
+  );
+}
 function Metric({
   label,
   value,
@@ -79,33 +125,53 @@ function Metric({
   icon: ReactNode;
 }) {
   return (
-    <div className="admin-metric">
-      <div>
-        <span>{label}</span>
-        {icon}
-      </div>
-      <strong>{typeof value === 'number' ? number(value) : value}</strong>
-      <small>{note}</small>
-    </div>
+    <Card className="gap-3 py-5" data-testid="admin-metric">
+      <CardContent className="flex flex-col gap-3 px-5">
+        <div className="flex items-center justify-between gap-3 text-sm font-medium text-muted-foreground">
+          <span>{label}</span>
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-surface text-brand">
+            {icon}
+          </span>
+        </div>
+        <strong className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          {typeof value === 'number' ? number(value) : value}
+        </strong>
+        <small className="text-xs leading-relaxed text-muted-foreground">{note}</small>
+      </CardContent>
+    </Card>
   );
+}
+function MetricGrid({ children }: { children: ReactNode }) {
+  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{children}</div>;
 }
 function Events({ items }: { items: AdminActivity[] }) {
   return items.length ? (
-    <ol className="admin-events">
+    <ol className="px-4 pb-2 sm:px-6" data-testid="admin-events">
       {items.map((event) => (
-        <li key={event.id}>
-          <span className={`admin-event-icon ${event.group === 'access' ? 'access' : ''}`}>
+        <li key={event.id} className="flex gap-3.5 border-t py-4">
+          <span
+            className={cn(
+              'grid size-9 shrink-0 place-items-center rounded-full',
+              event.group === 'access'
+                ? 'bg-brand-surface text-brand'
+                : 'bg-muted text-muted-foreground',
+            )}
+          >
             <Activity size={17} />
           </span>
-          <div>
-            <strong>{event.action.replaceAll('.', ' · ').replaceAll('_', ' ')}</strong>
-            <p>
+          <div className="min-w-0">
+            <strong className="text-sm font-semibold text-foreground capitalize">
+              {event.action.replaceAll('.', ' · ').replaceAll('_', ' ')}
+            </strong>
+            <p className="my-1 text-sm break-words text-foreground">
               {event.summary}
               {event.targetName && <> · {event.targetName}</>}
             </p>
-            <small>
+            <small className="text-xs text-muted-foreground">
               {event.actorId ? (
-                <Link to={`/users/${event.actorId}`}>{event.actorName ?? 'Account'}</Link>
+                <Link className={linkClass} to={`/users/${event.actorId}`}>
+                  {event.actorName ?? 'Account'}
+                </Link>
               ) : (
                 'System'
               )}{' '}
@@ -116,25 +182,33 @@ function Events({ items }: { items: AdminActivity[] }) {
       ))}
     </ol>
   ) : (
-    <Empty
-      title="No activity in this period"
-      description="Try a longer time range or another event group."
-    />
+    <div className="px-4 pb-6 sm:px-6">
+      <Empty
+        title="No activity in this period"
+        description="Try a longer time range or another event group."
+      />
+    </div>
   );
 }
 function Pagination({ data, onPage }: { data: Page<unknown>; onPage: (page: number) => void }) {
   return (
-    <div className="admin-pagination">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-4 text-sm text-muted-foreground sm:px-6">
       <span>
         {number(data.total)} results · Page {data.page} of{' '}
         {Math.max(1, Math.ceil(data.total / data.pageSize))}
       </span>
-      <div>
-        <Button variant="secondary" disabled={data.page <= 1} onClick={() => onPage(data.page - 1)}>
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          className="h-9"
+          disabled={data.page <= 1}
+          onClick={() => onPage(data.page - 1)}
+        >
           Previous
         </Button>
         <Button
           variant="secondary"
+          className="h-9"
           disabled={data.page * data.pageSize >= data.total}
           onClick={() => onPage(data.page + 1)}
         >
@@ -155,7 +229,7 @@ function Overview({ query }: { query: string }) {
     <Resource resource={resource}>
       {data && (
         <>
-          <div className="admin-metrics">
+          <MetricGrid>
             <Metric
               label="Accounts"
               value={data.totals.users}
@@ -180,82 +254,109 @@ function Overview({ query }: { query: string }) {
               note={`${data.totals.cliSessions} CLI sessions · unexpired, not revoked`}
               icon={<ShieldCheck size={18} />}
             />
-          </div>
-          <section className="admin-panel">
-            <div className="admin-section-heading">
-              <div>
-                <h2>Platform contributions</h2>
-                <p>
-                  Daily registrations, releases, and file revisions · last {data.period.days}{' '}
-                  calendar days
-                </p>
-              </div>
-              <span className="admin-period-total">
-                {number(data.period.users)} new accounts · {number(data.period.revisions)} revisions
-              </span>
+          </MetricGrid>
+          <Card className={panelClass}>
+            <SectionHeading
+              title="Platform contributions"
+              description={`Daily registrations, releases, and file revisions · last ${data.period.days} calendar days`}
+              aside={
+                <span className="text-sm text-muted-foreground">
+                  {number(data.period.users)} new accounts · {number(data.period.revisions)}{' '}
+                  revisions
+                </span>
+              }
+            />
+            <div className="flex flex-wrap gap-x-6 gap-y-2 px-4 pb-5 text-xs text-muted-foreground sm:px-6">
+              {(
+                [
+                  ['users', 'Accounts'],
+                  ['releases', 'Releases'],
+                  ['revisions', 'Revisions'],
+                ] as const
+              ).map(([kind, text]) => (
+                <span key={kind} className="inline-flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="size-2.5 rounded-sm"
+                    style={{ backgroundColor: chartColors[kind] }}
+                  />
+                  {text}
+                </span>
+              ))}
             </div>
-            <div className="admin-chart-legend">
-              <span className="users">Accounts</span>
-              <span className="releases">Releases</span>
-              <span className="revisions">Revisions</span>
-            </div>
-            <div className="admin-chart" aria-hidden="true">
+            <div
+              className="mx-4 flex h-44 items-end gap-1 border-b bg-[repeating-linear-gradient(to_top,transparent,transparent_42px,var(--border)_43px)] sm:mx-6"
+              aria-hidden="true"
+            >
               {data.trend.map((day) => (
                 <div
-                  className="admin-chart-day"
+                  className="flex h-full flex-1 items-end gap-px"
+                  data-testid="admin-chart-day"
                   key={day.date}
                   title={`${day.date}: ${day.users} accounts, ${day.releases} releases, ${day.revisions} revisions`}
                 >
                   {(['users', 'releases', 'revisions'] as const).map((kind) => (
                     <span
                       key={kind}
-                      className={kind}
-                      style={{ height: `${(day[kind] / max) * 100}%` }}
+                      className="min-w-px flex-1 rounded-t-sm"
+                      style={{
+                        height: `${(day[kind] / max) * 100}%`,
+                        backgroundColor: chartColors[kind],
+                      }}
                     />
                   ))}
                 </div>
               ))}
             </div>
-            <div className="admin-chart-dates">
+            <div className="flex justify-between px-4 py-3 text-xs text-muted-foreground sm:px-6">
               <span>{data.trend[0]?.date}</span>
               <span>{data.trend.at(-1)?.date}</span>
             </div>
-            <details className="admin-daily-data">
-              <summary>View daily totals</summary>
-              <div className="admin-table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Accounts</th>
-                      <th>Releases</th>
-                      <th>Revisions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+            <details className="border-t" data-testid="admin-daily-data">
+              <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-primary select-none hover:underline sm:px-6">
+                View daily totals
+              </summary>
+              <div className="max-h-72 overflow-auto border-t">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableHead className={headCell}>Date</TableHead>
+                      <TableHead className={headCell}>Accounts</TableHead>
+                      <TableHead className={headCell}>Releases</TableHead>
+                      <TableHead className={headCell}>Revisions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {data.trend.map((day) => (
-                      <tr key={day.date}>
-                        <th scope="row">{day.date}</th>
-                        <td>{day.users}</td>
-                        <td>{day.releases}</td>
-                        <td>{day.revisions}</td>
-                      </tr>
+                      <TableRow key={day.date}>
+                        <TableHead scope="row" className={cn(bodyCell, 'h-auto')}>
+                          {day.date}
+                        </TableHead>
+                        <TableCell className={bodyCell}>{day.users}</TableCell>
+                        <TableCell className={bodyCell}>{day.releases}</TableCell>
+                        <TableCell className={bodyCell}>{day.revisions}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </details>
-          </section>
-          <section className="admin-panel">
-            <div className="admin-section-heading">
-              <div>
-                <h2>Recent activity</h2>
-                <p>Changes across the platform</p>
-              </div>
-              <Link to="/admin?view=activity">View activity log →</Link>
-            </div>
+          </Card>
+          <Card className={cn(panelClass, 'pb-2')}>
+            <SectionHeading
+              title="Recent activity"
+              description="Changes across the platform"
+              aside={
+                <Link
+                  className={cn(linkClass, 'text-sm whitespace-nowrap')}
+                  to="/admin?view=activity"
+                >
+                  View activity log →
+                </Link>
+              }
+            />
             <Events items={data.recent} />
-          </section>
+          </Card>
         </>
       )}
     </Resource>
@@ -270,15 +371,9 @@ function RoleDialog({
   close: () => void;
   saved: () => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const role = user.role === 'admin' ? 'user' : 'admin';
-  useEffect(() => {
-    const dialog = ref.current!;
-    dialog.showModal();
-    return () => dialog.close();
-  }, []);
   async function submit() {
     setBusy(true);
     setError('');
@@ -294,41 +389,47 @@ function RoleDialog({
     }
   }
   return (
-    <dialog
-      ref={ref}
-      className="admin-role-dialog"
-      aria-labelledby="role-title"
-      onCancel={(event) => {
-        if (busy) event.preventDefault();
-        else close();
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !busy) close();
       }}
     >
-      <ShieldCheck size={26} />
-      <h2 id="role-title">
-        {role === 'admin' ? 'Grant administrator access?' : 'Remove administrator access?'}
-      </h2>
-      <p>
-        <strong>{user.name}</strong> · {user.email}
-      </p>
-      <p>
-        {role === 'admin'
-          ? 'This account will be able to see platform activity, account emails, Harness metadata, and grant roles to other verified users.'
-          : 'This account will retain its workspace and lose access to platform administration immediately.'}
-      </p>
-      {error && (
-        <ErrorBox
-          message={error + ' Close this dialog and review the refreshed user list before retrying.'}
-        />
-      )}
-      <div className="admin-dialog-actions">
-        <Button variant="secondary" disabled={busy} onClick={close}>
-          Cancel
-        </Button>
-        <Button disabled={busy || !!error} onClick={() => void submit()}>
-          {busy ? 'Saving…' : `Change to ${role}`}
-        </Button>
-      </div>
-    </dialog>
+      <DialogContent showCloseButton={false} className="gap-5 p-6 sm:max-w-lg">
+        <DialogHeader className="gap-3">
+          <span className="grid size-11 place-items-center rounded-xl bg-brand-surface text-brand">
+            <ShieldCheck size={24} />
+          </span>
+          <DialogTitle className="text-xl leading-snug font-semibold">
+            {role === 'admin' ? 'Grant administrator access?' : 'Remove administrator access?'}
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed break-words">
+            {role === 'admin'
+              ? 'This account will be able to see platform activity, account emails, Harness metadata, and grant roles to other verified users.'
+              : 'This account will retain its workspace and lose access to platform administration immediately.'}
+          </DialogDescription>
+        </DialogHeader>
+        <p className="rounded-lg bg-muted px-3 py-2.5 text-sm break-words text-foreground">
+          <strong className="font-semibold">{user.name}</strong>{' '}
+          <span className="text-muted-foreground">· {user.email}</span>
+        </p>
+        {error && (
+          <ErrorBox
+            message={
+              error + ' Close this dialog and review the refreshed user list before retrying.'
+            }
+          />
+        )}
+        <DialogFooter className="-mx-6 -mb-6 px-6 py-4">
+          <Button variant="secondary" disabled={busy} onClick={close}>
+            Cancel
+          </Button>
+          <Button disabled={busy || !!error} onClick={() => void submit()}>
+            {busy ? 'Saving…' : `Change to ${role}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 function UsersView({ query, onPage }: { query: string; onPage: (page: number) => void }) {
@@ -339,45 +440,55 @@ function UsersView({ query, onPage }: { query: string; onPage: (page: number) =>
     <>
       <Resource resource={resource}>
         {resource.data && (
-          <section className="admin-panel">
-            <div className="admin-section-heading">
-              <div>
-                <h2>Account access</h2>
-                <p>
-                  New accounts receive the user role. Email verification is required for promotion.
-                </p>
-              </div>
-            </div>
-            <div className="admin-table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Account</th>
-                    <th>Role</th>
-                    <th>Email</th>
-                    <th>Harnesses</th>
-                    <th>Sessions</th>
-                    <th>Joined</th>
-                    <th>Access</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resource.data.items.map((user) => (
-                    <tr key={user.id}>
-                      <th scope="row">
-                        <Link to={`/users/${user.id}`}>{user.name}</Link>
-                        <small>{user.email}</small>
-                      </th>
-                      <td>
-                        <span className={`admin-role ${user.role}`}>{user.role}</span>
-                      </td>
-                      <td>{user.verified ? 'Verified' : 'Unverified'}</td>
-                      <td>{user.harnessCount}</td>
-                      <td>{user.activeSessions}</td>
-                      <td>{formatDate(user.createdAt)}</td>
-                      <td>
+          <Card className={panelClass}>
+            <SectionHeading
+              title="Account access"
+              description="New accounts receive the user role. Email verification is required for promotion."
+            />
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className={headCell}>Account</TableHead>
+                  <TableHead className={headCell}>Role</TableHead>
+                  <TableHead className={headCell}>Email</TableHead>
+                  <TableHead className={headCell}>Harnesses</TableHead>
+                  <TableHead className={headCell}>Sessions</TableHead>
+                  <TableHead className={headCell}>Joined</TableHead>
+                  <TableHead className={headCell}>Access</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {resource.data.items.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableHead scope="row" className={cn(bodyCell, 'h-auto')}>
+                      <Link className={linkClass} to={`/users/${user.id}`}>
+                        {user.name}
+                      </Link>
+                      <span className={subText}>{user.email}</span>
+                    </TableHead>
+                    <TableCell className={bodyCell}>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'h-6 rounded-md px-2.5 capitalize',
+                          user.role === 'admin' &&
+                            'border-brand-border bg-brand-surface text-brand',
+                        )}
+                      >
+                        {user.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={bodyCell}>
+                      {user.verified ? 'Verified' : 'Unverified'}
+                    </TableCell>
+                    <TableCell className={bodyCell}>{user.harnessCount}</TableCell>
+                    <TableCell className={bodyCell}>{user.activeSessions}</TableCell>
+                    <TableCell className={bodyCell}>{formatDate(user.createdAt)}</TableCell>
+                    <TableCell className={bodyCell}>
+                      <div className="flex flex-col items-start">
                         <Button
                           variant="secondary"
+                          className="h-9"
                           disabled={
                             user.id === currentUser?.id || (!user.verified && user.role === 'user')
                           }
@@ -386,21 +497,28 @@ function UsersView({ query, onPage }: { query: string; onPage: (page: number) =>
                           {user.role === 'admin' ? 'Make user' : 'Make admin'}
                         </Button>
                         {user.id === currentUser?.id ? (
-                          <small>Your account · another admin must change it</small>
+                          <span className={subText}>
+                            Your account · another admin must change it
+                          </span>
                         ) : (
-                          !user.verified && <small>Verify email first</small>
+                          !user.verified && <span className={subText}>Verify email first</span>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
             {!resource.data.items.length && (
-              <Empty title="No matching accounts" description="Change the search or role filter." />
+              <div className="p-6">
+                <Empty
+                  title="No matching accounts"
+                  description="Change the search or role filter."
+                />
+              </div>
             )}
             <Pagination data={resource.data} onPage={onPage} />
-          </section>
+          </Card>
         )}
       </Resource>
       {selected && (
@@ -414,64 +532,69 @@ function HarnessesView({ query, onPage }: { query: string; onPage: (page: number
   return (
     <Resource resource={resource}>
       {resource.data && (
-        <section className="admin-panel">
-          <div className="admin-section-heading">
-            <div>
-              <h2>Harness inventory</h2>
-              <p>Ownership, visibility, and release metadata across all workspaces.</p>
-            </div>
-          </div>
-          <div className="admin-table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Harness</th>
-                  <th>Owner</th>
-                  <th>Visibility</th>
-                  <th>Release</th>
-                  <th>Files</th>
-                  <th>Created</th>
-                  <th>Published page</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resource.data.items.map((harness) => (
-                  <tr key={harness.id}>
-                    <th scope="row">
-                      {harness.name}
-                      <small>
-                        Revision {harness.revision} · {harness.releaseCount} releases
-                      </small>
-                    </th>
-                    <td>
-                      <Link to={`/users/${harness.ownerId}`}>{harness.ownerName}</Link>
-                    </td>
-                    <td>{harness.visibility}</td>
-                    <td>{harness.version ? `v${harness.version}` : 'Unpublished'}</td>
-                    <td>{harness.fileCount}</td>
-                    <td>{formatDate(harness.createdAt)}</td>
-                    <td>
-                      {harness.visibility === 'public' && harness.releaseId ? (
-                        <Link to={`/harnesses/${harness.id}/edit?release=${harness.releaseId}`}>
-                          Open →
-                        </Link>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <Card className={panelClass}>
+          <SectionHeading
+            title="Harness inventory"
+            description="Ownership, visibility, and release metadata across all workspaces."
+          />
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className={headCell}>Harness</TableHead>
+                <TableHead className={headCell}>Owner</TableHead>
+                <TableHead className={headCell}>Visibility</TableHead>
+                <TableHead className={headCell}>Release</TableHead>
+                <TableHead className={headCell}>Files</TableHead>
+                <TableHead className={headCell}>Created</TableHead>
+                <TableHead className={headCell}>Published page</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {resource.data.items.map((harness) => (
+                <TableRow key={harness.id}>
+                  <TableHead scope="row" className={cn(bodyCell, 'h-auto')}>
+                    {harness.name}
+                    <span className={subText}>
+                      Revision {harness.revision} · {harness.releaseCount} releases
+                    </span>
+                  </TableHead>
+                  <TableCell className={bodyCell}>
+                    <Link className={linkClass} to={`/users/${harness.ownerId}`}>
+                      {harness.ownerName}
+                    </Link>
+                  </TableCell>
+                  <TableCell className={cn(bodyCell, 'capitalize')}>{harness.visibility}</TableCell>
+                  <TableCell className={bodyCell}>
+                    {harness.version ? `v${harness.version}` : 'Unpublished'}
+                  </TableCell>
+                  <TableCell className={bodyCell}>{harness.fileCount}</TableCell>
+                  <TableCell className={bodyCell}>{formatDate(harness.createdAt)}</TableCell>
+                  <TableCell className={bodyCell}>
+                    {harness.visibility === 'public' && harness.releaseId ? (
+                      <Link
+                        className={linkClass}
+                        to={`/harnesses/${harness.id}/edit?release=${harness.releaseId}`}
+                      >
+                        Open →
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
           {!resource.data.items.length && (
-            <Empty
-              title="No matching Harnesses"
-              description="Change the search or visibility filter."
-            />
+            <div className="p-6">
+              <Empty
+                title="No matching Harnesses"
+                description="Change the search or visibility filter."
+              />
+            </div>
           )}
           <Pagination data={resource.data} onPage={onPage} />
-        </section>
+        </Card>
       )}
     </Resource>
   );
@@ -481,19 +604,14 @@ function ActivityView({ query, onPage }: { query: string; onPage: (page: number)
   return (
     <Resource resource={resource}>
       {resource.data && (
-        <section className="admin-panel">
-          <div className="admin-section-heading">
-            <div>
-              <h2>Platform activity log</h2>
-              <p>
-                Account, publishing, editing, and access events. Access logging starts with the
-                admin feature rollout.
-              </p>
-            </div>
-          </div>
+        <Card className={panelClass}>
+          <SectionHeading
+            title="Platform activity log"
+            description="Account, publishing, editing, and access events. Access logging starts with the admin feature rollout."
+          />
           <Events items={resource.data.items} />
           <Pagination data={resource.data} onPage={onPage} />
-        </section>
+        </Card>
       )}
     </Resource>
   );
@@ -505,7 +623,7 @@ function Monitoring() {
     <Resource resource={resource}>
       {data && (
         <>
-          <div className="admin-metrics">
+          <MetricGrid>
             <Metric
               label="Database"
               value={data.database.status === 'healthy' ? 'Healthy' : 'Unavailable'}
@@ -534,40 +652,44 @@ function Monitoring() {
               note="Resident memory for this API process"
               icon={<Database size={18} />}
             />
-          </div>
-          <section className="admin-panel">
-            <div className="admin-section-heading">
-              <div>
-                <h2>Request performance</h2>
-                <p>Measured responses from this API process</p>
-              </div>
-              <Button variant="secondary" onClick={resource.reload}>
-                <RefreshCw size={15} /> Refresh health
-              </Button>
-            </div>
-            <dl className="admin-health-list">
-              <div>
-                <dt>Mean response time</dt>
-                <dd>{data.api.averageMs} ms</dd>
-              </div>
-              <div>
-                <dt>95th percentile response time</dt>
-                <dd>{data.api.p95Ms} ms</dd>
-              </div>
-              <div>
-                <dt>Database checked</dt>
-                <dd>
-                  <time dateTime={data.checkedAt}>{new Date(data.checkedAt).toLocaleString()}</time>
-                </dd>
-              </div>
+          </MetricGrid>
+          <Card className={panelClass}>
+            <SectionHeading
+              title="Request performance"
+              description="Measured responses from this API process"
+              aside={
+                <Button variant="secondary" onClick={resource.reload}>
+                  <RefreshCw size={15} /> Refresh health
+                </Button>
+              }
+            />
+            <dl className="px-4 sm:px-6">
+              {[
+                ['Mean response time', `${data.api.averageMs} ms`],
+                ['95th percentile response time', `${data.api.p95Ms} ms`],
+                [
+                  'Database checked',
+                  <time key="checked" dateTime={data.checkedAt}>
+                    {new Date(data.checkedAt).toLocaleString()}
+                  </time>,
+                ],
+              ].map(([term, value]) => (
+                <div
+                  key={String(term)}
+                  className="flex flex-col gap-1 border-t py-4 text-sm sm:flex-row sm:justify-between sm:gap-3"
+                >
+                  <dt className="text-muted-foreground">{term}</dt>
+                  <dd className="font-semibold text-foreground">{value}</dd>
+                </div>
+              ))}
             </dl>
-            <p className="admin-measurement-note">
+            <p className="mx-4 mt-3 mb-6 rounded-lg bg-muted p-4 text-sm leading-relaxed text-muted-foreground sm:mx-6">
               Request totals and mean latency reset when this API process restarts. The 95th
               percentile covers its latest 2,000 completed API responses. These checks cover the API
               and database; email, external connections, and other API instances are outside this
               view.
             </p>
-          </section>
+          </Card>
         </>
       )}
     </Resource>
@@ -589,7 +711,7 @@ export function AdminPage() {
     setParams(next);
   };
   return (
-    <div className="admin-page">
+    <div className="mx-auto w-full max-w-[1500px] min-w-0" data-testid="admin-page">
       <PageTitle
         eyebrow="PLATFORM ADMINISTRATION"
         title="Platform overview"
@@ -600,21 +722,29 @@ export function AdminPage() {
           </Button>
         }
       />
-      <nav className="admin-tabs" aria-label="Administration sections">
+      <nav
+        className="mb-6 flex gap-6 overflow-x-auto border-b sm:gap-8"
+        aria-label="Administration sections"
+      >
         {views.map((item) => (
           <Link
             key={item}
             to={`/admin?view=${item}&days=${days}`}
             aria-current={view === item ? 'page' : undefined}
+            className="-mb-px border-b-2 border-transparent py-3.5 text-sm font-semibold whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:text-primary"
           >
             {labels[item]}
           </Link>
         ))}
       </nav>
-      <div className="admin-toolbar">
+      <div className="mb-6 flex flex-wrap items-end gap-4 [&>div]:mb-0">
         {(view === 'overview' || view === 'activity') && (
           <Field label="Time range">
-            <select value={days} onChange={(e) => update('days', e.target.value)}>
+            <select
+              className={selectClass}
+              value={days}
+              onChange={(e) => update('days', e.target.value)}
+            >
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>
               <option value="90">Last 90 days</option>
@@ -624,14 +754,20 @@ export function AdminPage() {
         {(view === 'users' || view === 'harnesses') && (
           <form
             key={`${view}-${params.get('q')}`}
-            className="admin-search"
+            className="flex min-w-0 basis-full items-end gap-2 sm:flex-1 sm:basis-80 [&>div]:mb-0 [&>div]:flex-1"
             onSubmit={(e) => {
               e.preventDefault();
               update('q', String(new FormData(e.currentTarget).get('q') ?? ''));
             }}
           >
             <Field label={view === 'users' ? 'Search name or email' : 'Search Harness or owner'}>
-              <input name="q" defaultValue={params.get('q') ?? ''} maxLength={120} type="search" />
+              <Input
+                className="h-10"
+                name="q"
+                defaultValue={params.get('q') ?? ''}
+                maxLength={120}
+                type="search"
+              />
             </Field>
             <Button variant="secondary" type="submit">
               Search
@@ -641,6 +777,7 @@ export function AdminPage() {
         {view === 'users' && (
           <Field label="Role">
             <select
+              className={selectClass}
               value={params.get('role') ?? 'all'}
               onChange={(e) => update('role', e.target.value)}
             >
@@ -653,6 +790,7 @@ export function AdminPage() {
         {view === 'harnesses' && (
           <Field label="Visibility">
             <select
+              className={cn(selectClass, 'capitalize')}
               value={params.get('visibility') ?? 'all'}
               onChange={(e) => update('visibility', e.target.value)}
             >
@@ -667,6 +805,7 @@ export function AdminPage() {
         {view === 'activity' && (
           <Field label="Event group">
             <select
+              className={cn(selectClass, 'capitalize')}
               value={params.get('group') ?? 'all'}
               onChange={(e) => update('group', e.target.value)}
             >
@@ -679,7 +818,7 @@ export function AdminPage() {
           </Field>
         )}
       </div>
-      <div key={`${view}-${refresh}`}>
+      <div className="flex flex-col gap-6" key={`${view}-${refresh}`}>
         {view === 'overview' ? (
           <Overview query={query.toString()} />
         ) : view === 'users' ? (

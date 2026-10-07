@@ -12,24 +12,28 @@ for (const [email, password] of [
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page).toHaveURL(/\/profile$/);
     await expect(page.getByRole('heading', { name: 'Your profile', exact: true })).toBeVisible();
-    await expect(page.locator('.profile-email')).toHaveText(email);
+    await expect(page.getByTestId('profile-email')).toHaveText(email);
     await page.goto('/harnesses');
-    await page.locator('.workspace-label').click();
+    await page.getByLabel('Account menu').click();
+    await page
+      .getByTestId('account-menu')
+      .getByRole('menuitem', { name: 'Your profile', exact: true })
+      .click();
     await expect(page).toHaveURL(/\/profile$/);
-    await expect(page.locator('.profile-email')).toHaveText(email);
+    await expect(page.getByTestId('profile-email')).toHaveText(email);
     await page.goto('/users/me');
     await expect(page).toHaveURL(/\/profile$/);
-    await expect(page.locator('.profile-email')).toHaveText(email);
+    await expect(page.getByTestId('profile-email')).toHaveText(email);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByLabel('Account menu').click();
     await page
-      .locator('.account-menu')
-      .getByRole('link', { name: 'Edit profile', exact: true })
+      .getByTestId('account-menu')
+      .getByRole('menuitem', { name: 'Edit profile', exact: true })
       .click();
     await expect(page).toHaveURL(/\/profile\/edit$/);
     await expect(page.getByLabel('Display name')).toBeVisible();
     await page.getByLabel('Account menu').click();
-    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Sign out', exact: true }).click();
     await page.goto('/profile/edit');
     await expect(page).toHaveURL(/\/login\?returnTo=%2Fprofile%2Fedit$/);
     await page.getByLabel('Email address').fill(email);
@@ -38,6 +42,6 @@ for (const [email, password] of [
     await expect(page).toHaveURL(/\/profile\/edit$/);
     await expect(page.getByLabel('Display name')).toBeVisible();
     await page.getByLabel('Account menu').click();
-    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Sign out', exact: true }).click();
   });
 }

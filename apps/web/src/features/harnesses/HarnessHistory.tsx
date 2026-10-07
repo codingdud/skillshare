@@ -3,6 +3,11 @@ import { Link, useParams } from 'react-router-dom';
 import { api, errorMessage } from '../../lib/http';
 import { Button, ErrorBox, Loading, PageTitle } from '../../components/ui';
 import type { SyncFile, HarnessCapabilities } from '@skillshare/contracts';
+import { Badge } from '@/components/ui/badge';
+import { Button as ShadButton } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { selectClass } from './harness-ui';
 const Diff = lazy(() =>
   import('../editor/SourceEditor').then((module) => ({ default: module.SourceDiffEditor })),
 );
@@ -153,72 +158,88 @@ export function HarnessHistoryPage() {
         title="Harness history"
         description="Immutable working revisions. Restoring creates a new draft; published releases stay stable."
         action={
-          <Link className="btn btn-secondary" to={'/harnesses/' + id + '/edit'}>
-            Back to editor
-          </Link>
+          <ShadButton asChild variant="outline" size="lg" className="h-10 px-4 font-semibold">
+            <Link to={'/harnesses/' + id + '/edit'}>Back to editor</Link>
+          </ShadButton>
         }
       />
       {error && <ErrorBox message={error} />}
-      <div className="panel p-5 flex flex-wrap gap-4">
-        <label>
-          Compare from
-          <select aria-label="Base revision" value={base} onChange={(e) => setBase(e.target.value)}>
-            {items.map((r) => (
-              <option key={r.id} value={r.id}>
-                r{r.revision} · {r.message}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          To
-          <select
-            aria-label="Target revision"
-            value={head}
-            onChange={(e) => setHead(e.target.value)}
+      <Card className="mt-4">
+        <CardContent className="grid items-end gap-4 md:grid-cols-[1fr_1fr_auto]">
+          <Label className="grid gap-2 font-semibold">
+            Compare from
+            <select
+              className={selectClass}
+              aria-label="Base revision"
+              value={base}
+              onChange={(e) => setBase(e.target.value)}
+            >
+              {items.map((r) => (
+                <option key={r.id} value={r.id}>
+                  r{r.revision} · {r.message}
+                </option>
+              ))}
+            </select>
+          </Label>
+          <Label className="grid gap-2 font-semibold">
+            To
+            <select
+              className={selectClass}
+              aria-label="Target revision"
+              value={head}
+              onChange={(e) => setHead(e.target.value)}
+            >
+              {items.map((r) => (
+                <option key={r.id} value={r.id}>
+                  r{r.revision} · {r.message}
+                </option>
+              ))}
+            </select>
+          </Label>
+          <Button
+            variant="secondary"
+            disabled={!canRestore || busy || !head}
+            onClick={() => void reviewRestore()}
           >
-            {items.map((r) => (
-              <option key={r.id} value={r.id}>
-                r{r.revision} · {r.message}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button
-          variant="secondary"
-          disabled={!canRestore || busy || !head}
-          onClick={() => void reviewRestore()}
-        >
-          Review restoration
-        </Button>
-      </div>
+            Review restoration
+          </Button>
+        </CardContent>
+      </Card>
       {restoring && restorePreview && (
-        <section className="panel p-5 my-4">
-          <p>
-            Restore the complete selected revision to a new draft? Download any unsaved editor work
-            before continuing. These saved draft files will change:
-          </p>
-          <ul className="my-3">
-            {restorePreview.paths.map((file) => (
-              <li key={file}>
-                <code>{file}</code>
-              </li>
-            ))}
-          </ul>
-          {!restorePreview.paths.length && <p>The saved draft already matches this revision.</p>}
-          <Button disabled={busy || !restorePreview.paths.length} onClick={() => void restore()}>
-            {busy ? 'Restoring…' : 'Restore selected revision'}
-          </Button>
-          <Button variant="secondary" disabled={busy} onClick={() => setRestoring(false)}>
-            Cancel
-          </Button>
-        </section>
+        <Card className="my-4 border-0 bg-warning-surface">
+          <CardContent className="grid gap-3">
+            <p>
+              Restore the complete selected revision to a new draft? Download any unsaved editor
+              work before continuing. These saved draft files will change:
+            </p>
+            <ul className="grid gap-1">
+              {restorePreview.paths.map((file) => (
+                <li key={file}>
+                  <code className="font-mono text-xs">{file}</code>
+                </li>
+              ))}
+            </ul>
+            {!restorePreview.paths.length && <p>The saved draft already matches this revision.</p>}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={busy || !restorePreview.paths.length}
+                onClick={() => void restore()}
+              >
+                {busy ? 'Restoring…' : 'Restore selected revision'}
+              </Button>
+              <Button variant="secondary" disabled={busy} onClick={() => setRestoring(false)}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
       <div className="my-4 flex flex-wrap gap-2">
         {changes.map((file) => (
           <Button
             key={file}
             variant={file === selected ? 'primary' : 'secondary'}
+            className="h-8 font-mono text-xs"
             onClick={() => setPath(file)}
           >
             {file}
@@ -226,31 +247,41 @@ export function HarnessHistoryPage() {
         ))}
       </div>
       {snapshots && selected ? (
-        <Suspense fallback={<Loading />}>
-          <Diff
-            filePath={selected}
-            before={snapshots[0].files.find((f) => f.path === selected)?.content ?? ''}
-            after={snapshots[1].files.find((f) => f.path === selected)?.content ?? ''}
-          />
-        </Suspense>
+        <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
+          <Suspense fallback={<Loading />}>
+            <Diff
+              filePath={selected}
+              before={snapshots[0].files.find((f) => f.path === selected)?.content ?? ''}
+              after={snapshots[1].files.find((f) => f.path === selected)?.content ?? ''}
+            />
+          </Suspense>
+        </div>
       ) : (
-        <p className="my-5">No differences between the selected revisions.</p>
+        <p className="my-5 text-muted-foreground">No differences between the selected revisions.</p>
       )}
-      <div className="grid gap-3 mt-5">
+      <div className="mt-6 grid gap-3">
         {items.map((r) => (
-          <section className="panel p-4" key={r.id}>
-            <strong>
-              r{r.revision} · {r.message}
-            </strong>
-            <p>
-              {r.authorName ?? 'Unknown historical author'} · {r.source} ·{' '}
-              {new Date(r.createdAt).toLocaleString()}
-            </p>
-          </section>
+          <Card size="sm" data-testid="history-revision" key={r.id}>
+            <CardContent className="grid gap-1">
+              <strong className="text-foreground">
+                r{r.revision} · {r.message}
+              </strong>
+              <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                {r.authorName ?? 'Unknown historical author'}
+                <Badge variant="secondary">{r.source}</Badge>
+                {new Date(r.createdAt).toLocaleString()}
+              </p>
+            </CardContent>
+          </Card>
         ))}
       </div>
       {cursor && (
-        <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>
+        <Button
+          variant="secondary"
+          className="mt-4"
+          disabled={loadingMore}
+          onClick={() => void loadMore()}
+        >
           {loadingMore ? 'Loading history?' : 'Load older revisions'}
         </Button>
       )}

@@ -18,6 +18,8 @@ export type DiscoverySnapshot = {
   version: string;
   files: HarnessTreeFile[];
   updatedAt: string | Date;
+  ratingAverage?: number | null;
+  ratingCount?: number;
 };
 
 /** Discovery derives identities from an authorized, immutable repository snapshot. */
@@ -41,6 +43,8 @@ export function discoverSnapshots(
       visibility: snapshot.visibility,
       updatedAt: new Date(snapshot.updatedAt).toISOString(),
       fileCount: snapshot.files.length,
+      ratingAverage: snapshot.ratingAverage ?? null,
+      ratingCount: snapshot.ratingCount ?? 0,
     };
     const nativeItems = components.map((component) => {
       const source = snapshot.files.find((file) => file.path === component.path)?.content ?? '';
@@ -105,6 +109,10 @@ export function discoverSnapshots(
   ranked.sort(
     (a, b) =>
       (query.sort === 'relevant' ? b.score - a.score : 0) ||
+      (query.sort === 'rating'
+        ? (b.item.ratingAverage ?? 0) - (a.item.ratingAverage ?? 0) ||
+          b.item.ratingCount - a.item.ratingCount
+        : 0) ||
       b.item.updatedAt.localeCompare(a.item.updatedAt) ||
       a.item.id.localeCompare(b.item.id),
   );

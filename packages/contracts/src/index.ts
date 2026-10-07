@@ -54,7 +54,7 @@ export const harnessDiscoveryQuerySchema = z.object({
   type: z.enum(['all', ...harnessDiscoveryKinds]).default('all'),
   runtime: z.string().trim().max(80).default(''),
   page: z.coerce.number().int().min(1).max(10000).default(1),
-  sort: z.enum(['relevant', 'recent']).default('relevant'),
+  sort: z.enum(['relevant', 'recent', 'rating']).default('relevant'),
 });
 export type HarnessDiscoveryQuery = z.infer<typeof harnessDiscoveryQuerySchema>;
 export type HarnessDiscoveryItem = {
@@ -73,6 +73,8 @@ export type HarnessDiscoveryItem = {
   runtimes: string[];
   updatedAt: string;
   fileCount: number;
+  ratingAverage: number | null;
+  ratingCount: number;
   components: { type: string; name: string; path: string }[];
 };
 export type HarnessDiscoveryPage = Page<HarnessDiscoveryItem> & { runtimes: string[] };
@@ -199,6 +201,7 @@ export const reviewSchema = z.strictObject({
 });
 export { harnessMemberSchema as memberSchema } from './collaboration.js';
 export * from './collaboration.js';
+export * from './ratings.js';
 export const emailRequestSchema = z.strictObject({ email: z.email().toLowerCase().max(254) });
 export const otpSchema = emailRequestSchema.extend({
   code: z.string().regex(/^\d{6}$/, 'Enter the six-digit code from your email.'),
@@ -227,7 +230,7 @@ export const searchSchema = z.object({
   type: z.enum(['all', ...assetKinds]).default('all'),
   stage: z.string().max(40).default(''),
   page: z.coerce.number().int().min(1).max(10000).default(1),
-  sort: z.enum(['relevant', 'recent']).default('relevant'),
+  sort: z.enum(['relevant', 'recent', 'rating']).default('relevant'),
   grouped: z.enum(['true', 'false']).default('true'),
 });
 

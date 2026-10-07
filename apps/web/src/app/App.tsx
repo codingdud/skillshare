@@ -16,11 +16,13 @@ import {
 } from '../features/harnesses/HarnessPages';
 import { useAppSelector } from './hooks';
 import { transport } from '../lib/http';
+import { buttonVariants } from '@/components/ui/button';
 import { Loading, Empty } from '../components/ui';
 import { applyTheme } from './theme';
 import { DeviceApprovalPage, ConnectedDevicesPage } from '../features/devices/DevicePages';
 import { HarnessHistoryPage } from '../features/harnesses/HarnessHistory';
 import { HarnessCliPage } from '../features/harnesses/HarnessCliPage';
+import { HarnessReviewsPage } from '../features/harnesses/HarnessReviewsPage';
 import { HarnessCollaborationPage } from '../features/harnesses/HarnessCollaborationPage';
 import { ProfilePage, EditProfilePage } from '../features/profile/ProfilePage';
 import { returnPath } from '../features/auth/return-path';
@@ -37,7 +39,7 @@ function AdminProtected() {
         title="Administrator access required"
         description="Your account has the user role. Contact an administrator if you need access."
         action={
-          <Link className="btn btn-secondary" to="/harnesses">
+          <Link className={buttonVariants({ variant: 'outline', size: 'lg' })} to="/harnesses">
             My Harnesses
           </Link>
         }
@@ -114,6 +116,7 @@ export function App() {
           }
         />
         <Route path="harnesses/:id/cli" element={<HarnessCliPage />} />
+        <Route path="harnesses/:id/reviews" element={<HarnessReviewsPage />} />
         <Route
           path="harnesses/:id/changes"
           element={

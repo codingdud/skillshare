@@ -3,6 +3,9 @@ import { Clock, ArrowUpRight } from 'lucide-react';
 import type { HarnessDiscoveryPage } from '@skillshare/contracts';
 import { useResource } from '../../lib/useResource';
 import { HarnessResult } from './HarnessResult';
+import { Card } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { PageTitle, Loading, ErrorBox, Empty, Button, formatDate } from '../../components/ui';
 export function SavedPage() {
   const [params, setParams] = useSearchParams();
@@ -22,13 +25,13 @@ export function SavedPage() {
         <ErrorBox message={resource.error} retry={resource.reload} />
       ) : resource.data?.items.length ? (
         <>
-          <div className="asset-list">
+          <div className="flex flex-col gap-3">
             {resource.data.items.map((item) => (
               <HarnessResult key={item.id} item={item} onChange={resource.reload} />
             ))}
           </div>
           {resource.data.total > resource.data.pageSize && (
-            <div className="pagination">
+            <div className="mt-6 flex items-center justify-center gap-5 text-sm text-muted-foreground">
               <Button
                 variant="secondary"
                 disabled={resource.data.page <= 1}
@@ -52,7 +55,7 @@ export function SavedPage() {
           title="Keep useful Harnesses close"
           description="Save a Harness from Explore to find it here."
           action={
-            <Link to="/" className="btn btn-primary">
+            <Link to="/" className={buttonVariants({ size: 'lg' })}>
               Explore Harnesses
             </Link>
           }
@@ -84,27 +87,27 @@ export function ActivityPage() {
       ) : resource.error ? (
         <ErrorBox message={resource.error} retry={resource.reload} />
       ) : resource.data?.items.length ? (
-        <div className="panel">
+        <Card className="gap-0 divide-y py-0">
           {resource.data.items.map((item) => (
             <Link
               key={item.id}
-              className="activity-row"
+              className="flex items-center gap-4 p-6 hover:bg-muted/50"
               to={'/harnesses/' + item.harnessId + '/edit?release=' + item.id}
             >
-              <div className="icon-tile">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-surface text-brand">
                 <Clock size={18} />
               </div>
               <div>
-                <strong>
+                <strong className="text-sm text-foreground">
                   {item.harnessName} · v{item.version}
                 </strong>
-                <p>{item.notes}</p>
-                <p className="text-sm text-slate-500">{formatDate(item.createdAt)}</p>
+                <p className="text-sm text-text-strong">{item.notes}</p>
+                <p className="text-sm text-muted-foreground">{formatDate(item.createdAt)}</p>
               </div>
-              <ArrowUpRight size={16} />
+              <ArrowUpRight size={16} className="ml-auto text-text-faint" />
             </Link>
           ))}
-        </div>
+        </Card>
       ) : (
         <Empty
           title="No releases yet"
@@ -122,16 +125,16 @@ export function OrganizationsPage() {
         title="Shared Harness access"
         description="Share a native file repository with your team."
       />
-      <div className="panel content-panel max-w-3xl">
-        <h2>Start with a team Harness</h2>
-        <p>
+      <Card className="max-w-3xl p-7">
+        <h2 className="text-xl font-semibold text-foreground">Start with a team Harness</h2>
+        <p className="leading-relaxed text-text-strong">
           Create a Harness with Team visibility, then select Share with teammate in its editor.
           Invited users can view published releases; owners edit drafts and publish.
         </p>
-        <Link className="btn btn-primary mt-4" to="/harnesses/new">
+        <Link className={cn(buttonVariants({ size: 'lg' }), 'mt-2 w-fit')} to="/harnesses/new">
           Create a team Harness
         </Link>
-      </div>
+      </Card>
     </>
   );
 }

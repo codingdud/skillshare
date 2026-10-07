@@ -10,6 +10,8 @@ import {
   harnessProposalSchema,
   harnessProposalDecisionSchema,
   harnessProposalMergeSchema,
+  harnessRatingInputSchema,
+  harnessRatingQuerySchema,
 } from '@skillshare/contracts';
 import { requireAuth } from '../auth/auth.middleware.js';
 import { harnessService } from './harness.service.js';
@@ -17,6 +19,7 @@ import { harnessSync, changesetSchema } from './harness.sync.js';
 import { z } from 'zod';
 import { AppError } from '../../shared/errors.js';
 import { collaborationService } from './harness.collaboration.js';
+import { ratingService } from './harness.ratings.js';
 
 const router = Router();
 router.use((req, _res, next) => {
@@ -128,6 +131,28 @@ router.get('/saved', requireAuth, async (req, res) =>
 router.get('/activity', requireAuth, async (req, res) =>
   res.json({ items: await harnessService.activity(req.userId!) }),
 );
+router.get('/:id/ratings', async (req, res) =>
+  res.json(
+    await ratingService.list(
+      idSchema.parse(req.params.id),
+      req.userId,
+      harnessRatingQuerySchema.parse(req.query).page,
+    ),
+  ),
+);
+router.put('/:id/ratings/me', requireAuth, async (req, res) =>
+  res.json(
+    await ratingService.rate(
+      idSchema.parse(req.params.id),
+      req.userId!,
+      harnessRatingInputSchema.parse(req.body),
+    ),
+  ),
+);
+router.delete('/:id/ratings/me', requireAuth, async (req, res) => {
+  await ratingService.remove(idSchema.parse(req.params.id), req.userId!);
+  res.status(204).end();
+});
 router.get('/:id/save', requireAuth, async (req, res) =>
   res.json({ saved: await harnessService.saved(idSchema.parse(req.params.id), req.userId!) }),
 );

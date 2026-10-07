@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -11,10 +11,33 @@ import {
   Zap,
 } from 'lucide-react';
 import type { HarnessTreeFile } from '@skillshare/contracts';
+import { Button } from '@/components/ui/button';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 export type HarnessPathTarget = { path: string; folder: boolean };
 export type HarnessFileAction =
   'new-file' | 'new-folder' | 'rename' | 'delete' | 'skill' | 'agent' | 'mcp' | 'hook' | 'settings';
+
+const menuItems: [HarnessFileAction, string][] = [
+  ['new-file', 'New file…'],
+  ['new-folder', 'New folder…'],
+  ['skill', 'New skill…'],
+  ['agent', 'New agent…'],
+  ['mcp', 'Open MCP configuration'],
+  ['hook', 'New hook…'],
+  ['settings', 'Runtime settings…'],
+];
+const rowBase =
+  'flex min-h-8 w-full min-w-0 items-center gap-1.5 rounded-md border-0 bg-transparent pr-2 text-left font-mono text-xs text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60 [&>svg]:shrink-0 [&>span]:truncate';
 
 export function HarnessExplorer({
   files,
@@ -32,11 +55,7 @@ export function HarnessExplorer({
   const [closed, setClosed] = useState(new Set<string>());
   const [folder, setFolder] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
-  const [menu, setMenu] = useState<{ x: number; y: number; target: HarnessPathTarget } | null>(
-    null,
-  );
-  const menuRef = useRef<HTMLDivElement>(null);
-  const returnFocus = useRef<HTMLElement | null>(null);
+  const [menuTarget, setMenuTarget] = useState<HarnessPathTarget>({ path: '', folder: true });
   const target =
     folder !== null ? { path: folder, folder: true } : { path: selected, folder: false };
   useEffect(() => {
@@ -49,34 +68,11 @@ export function HarnessExplorer({
       return next;
     });
   }, [selected]);
-  function closeMenu() {
-    setMenu(null);
-    returnFocus.current?.focus();
-  }
-  function openMenu(event: MouseEvent<HTMLElement>, next: HarnessPathTarget) {
+  function markMenu(_event: MouseEvent<HTMLElement>, next: HarnessPathTarget) {
     if (!canEdit) return;
-    event.preventDefault();
-    event.stopPropagation();
-    returnFocus.current = event.currentTarget;
     setFolder(next.folder ? next.path : null);
-    setMenu({ x: event.clientX, y: event.clientY, target: next });
+    setMenuTarget(next);
   }
-  useEffect(() => {
-    if (!menu) return;
-    menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
-    const dismiss = (event: PointerEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) closeMenu();
-    };
-    const key = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeMenu();
-    };
-    window.addEventListener('pointerdown', dismiss);
-    window.addEventListener('keydown', key);
-    return () => {
-      window.removeEventListener('pointerdown', dismiss);
-      window.removeEventListener('keydown', key);
-    };
-  }, [menu]);
   function toggle(path: string, close?: boolean) {
     setClosed((previous) => {
       const next = new Set(previous);
@@ -84,7 +80,7 @@ export function HarnessExplorer({
       return next;
     });
   }
-  function rows(prefix = '', depth = 0): React.ReactNode {
+  function rows(prefix = '', depth = 0): ReactNode {
     const directories = new Set<string>();
     const own: HarnessTreeFile[] = [];
     for (const file of files) {
@@ -112,7 +108,8 @@ export function HarnessExplorer({
             return (
               <div key={path}>
                 <button
-                  className={'harness-explorer-folder ' + (folder === path ? 'selected' : '')}
+                  type="button"
+                  className={cn(rowBase, 'text-muted-foreground', folder === path && 'bg-accent')}
                   style={{ paddingLeft: 8 + depth * 14 }}
                   aria-label={path + ' folder'}
                   aria-expanded={open}
@@ -120,7 +117,7 @@ export function HarnessExplorer({
                     setFolder(path);
                     toggle(path);
                   }}
-                  onContextMenu={(event) => openMenu(event, { path, folder: true })}
+                  onContextMenu={(event) => markMenu(event, { path, folder: true })}
                   onKeyDown={(event) => {
                     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
                       event.preventDefault();
@@ -146,17 +143,18 @@ export function HarnessExplorer({
           .map((file) => (
             <div
               key={file.path}
-              className={
-                'harness-explorer-row ' +
-                (selected === file.path && folder === null ? 'selected' : '')
-              }
+              className={cn(
+                'group/row flex min-w-0 items-center rounded-md hover:bg-muted',
+                selected === file.path && folder === null && 'bg-accent text-accent-foreground',
+              )}
               onContextMenu={(event) => {
                 onSelect(file.path);
-                openMenu(event, { path: file.path, folder: false });
+                markMenu(event, { path: file.path, folder: false });
               }}
             >
               <button
-                className="harness-explorer-file"
+                type="button"
+                className={cn(rowBase, 'min-w-0 flex-1 hover:bg-transparent')}
                 style={{ paddingLeft: 24 + depth * 14 }}
                 title={file.path}
                 aria-label={file.path}
@@ -179,14 +177,18 @@ export function HarnessExplorer({
                 <span>{file.path.split('/').at(-1)}</span>
               </button>
               {canEdit && (
-                <button
-                  className="harness-explorer-delete"
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="mr-1 text-muted-foreground opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:text-destructive focus-visible:opacity-100"
+                  data-testid="harness-explorer-delete"
                   aria-label={'Delete ' + file.path}
                   title={'Delete ' + file.path}
                   onClick={() => onAction('delete', { path: file.path, folder: false })}
                 >
                   <Trash2 size={14} />
-                </button>
+                </Button>
               )}
             </div>
           ))}
@@ -194,118 +196,118 @@ export function HarnessExplorer({
     );
   }
   return (
-    <div
-      className="harness-explorer"
-      onContextMenu={(event) => openMenu(event, { path: '', folder: true })}
-    >
-      <div className="harness-explorer-toolbar">
-        <strong>EXPLORER</strong>
-        {canEdit && (
-          <>
-            <button
-              aria-label="New file"
-              title="New file"
-              onClick={() => onAction('new-file', target)}
-            >
-              <FilePlus2 size={16} />
-            </button>
-            <button
-              aria-label="New folder"
-              title="New folder"
-              onClick={() => onAction('new-folder', target)}
-            >
-              <FolderPlus size={16} />
-            </button>
-            <button
-              aria-label="New skill"
-              title="New skill"
-              onClick={() => onAction('skill', target)}
-            >
-              <Zap size={16} />
-            </button>
-            <button
-              aria-label="Edit MCP"
-              title="Open MCP configuration"
-              onClick={() => onAction('mcp', target)}
-            >
-              <Plug size={16} />
-            </button>
-          </>
-        )}
-      </div>
-      <input
-        className="harness-explorer-filter"
-        aria-label="Find a file"
-        placeholder="Find a file…"
-        value={filter}
-        onChange={(event) => setFilter(event.target.value)}
-      />
-      <div
-        className="harness-explorer-list"
-        onKeyDown={(event) => {
-          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-          event.preventDefault();
-          const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button')];
-          const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-          buttons[
-            (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
-          ]?.focus();
+    <ContextMenu>
+      <ContextMenuTrigger
+        asChild
+        disabled={!canEdit}
+        onContextMenuCapture={() => {
+          if (!canEdit) return;
+          setFolder('');
+          setMenuTarget({ path: '', folder: true });
         }}
       >
-        {rows()}
-        {!files.length && <p>Right-click here or use New skill to start.</p>}
-      </div>
-      {menu && (
-        <div
-          ref={menuRef}
-          role="menu"
-          aria-label="Explorer actions"
-          className="harness-context-menu"
-          style={{
-            left: Math.max(8, Math.min(menu.x, window.innerWidth - 218)),
-            top: Math.max(8, Math.min(menu.y, window.innerHeight - 350)),
-          }}
-          onContextMenu={(event) => event.preventDefault()}
-          onKeyDown={(event) => {
-            if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
-            event.preventDefault();
-            const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button')];
-            const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-            buttons[
-              (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
-            ]?.focus();
-          }}
-        >
-          {(
-            [
-              ['new-file', 'New file…'],
-              ['new-folder', 'New folder…'],
-              ['skill', 'New skill…'],
-              ['agent', 'New agent…'],
-              ['mcp', 'Open MCP configuration'],
-              ['hook', 'New hook…'],
-              ['settings', 'Runtime settings…'],
-              ...(menu.target.path
-                ? [
-                    ['rename', 'Rename…'],
-                    ['delete', 'Delete'],
-                  ]
-                : []),
-            ] as [HarnessFileAction, string][]
-          ).map(([action, label]) => (
-            <button
-              key={action}
-              role="menuitem"
-              onClick={() => {
-                onAction(action, menu.target);
-                closeMenu();
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex items-center gap-1 px-3 pt-3 pb-2">
+            <strong className="flex-1 text-[11px] font-semibold tracking-widest text-muted-foreground">
+              EXPLORER
+            </strong>
+            {canEdit && (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="New file"
+                  title="New file"
+                  onClick={() => onAction('new-file', target)}
+                >
+                  <FilePlus2 />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="New folder"
+                  title="New folder"
+                  onClick={() => onAction('new-folder', target)}
+                >
+                  <FolderPlus />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="New skill"
+                  title="New skill"
+                  onClick={() => onAction('skill', target)}
+                >
+                  <Zap />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Edit MCP"
+                  title="Open MCP configuration"
+                  onClick={() => onAction('mcp', target)}
+                >
+                  <Plug />
+                </Button>
+              </>
+            )}
+          </div>
+          <div className="px-3 pb-2">
+            <Input
+              className="h-8 bg-background text-xs md:text-xs"
+              aria-label="Find a file"
+              placeholder="Find a file…"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+          </div>
+          <ScrollArea className="min-h-0 flex-1 overflow-hidden [&_[data-radix-scroll-area-viewport]>div]:block!">
+            <div
+              className="grid gap-px px-2 pb-9"
+              onKeyDown={(event) => {
+                if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+                event.preventDefault();
+                const buttons = [
+                  ...event.currentTarget.querySelectorAll<HTMLButtonElement>('button'),
+                ];
+                const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+                buttons[
+                  (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
+                ]?.focus();
               }}
             >
-              {label}
-            </button>
-          ))}
+              {rows()}
+              {!files.length && (
+                <p className="p-3 text-xs text-muted-foreground">
+                  Right-click here or use New skill to start.
+                </p>
+              )}
+            </div>
+          </ScrollArea>
         </div>
-      )}
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent aria-label="Explorer actions" className="w-56">
+        {menuItems.map(([action, label]) => (
+          <ContextMenuItem key={action} onSelect={() => onAction(action, menuTarget)}>
+            {label}
+          </ContextMenuItem>
+        ))}
+        {menuTarget.path && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onSelect={() => onAction('rename', menuTarget)}>
+              Rename…
+            </ContextMenuItem>
+            <ContextMenuItem variant="destructive" onSelect={() => onAction('delete', menuTarget)}>
+              Delete
+            </ContextMenuItem>
+          </>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

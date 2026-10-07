@@ -3,6 +3,20 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api, errorMessage, transport } from '../../lib/http';
 import { useAppSelector } from '../../app/hooks';
 import { Button, ErrorBox, Field, PageTitle } from '../../components/ui';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 type Consent = { label: string; scopes: string[]; expiresAt: string };
 export function DeviceApprovalPage() {
   const [params] = useSearchParams(),
@@ -58,92 +72,128 @@ export function DeviceApprovalPage() {
   }
   const destination = '/device?code=' + encodeURIComponent(code);
   return (
-    <section className="panel max-w-2xl mx-auto p-8">
-      <h1 className="text-2xl font-semibold">Authorize SkillSync CLI</h1>
-      <p className="my-4">
-        Only approve a request you started in your terminal. Match the code before granting access.
-      </p>
-      {error && <ErrorBox message={error} />}
-      {done ? (
-        <p role="status">{done}</p>
-      ) : !user ? (
-        <Link className="btn btn-primary" to={'/login?returnTo=' + encodeURIComponent(destination)}>
-          Sign in to authorize CLI
-        </Link>
-      ) : (
-        <>
-          <p className="mb-4">
-            Signed in as <strong>{user.email}</strong>
+    <Card className="mx-auto w-full max-w-2xl gap-6 py-8" data-testid="device-approval">
+      <CardHeader className="px-8">
+        <CardTitle className="text-2xl font-semibold tracking-tight">
+          <h1>Authorize SkillSync CLI</h1>
+        </CardTitle>
+        <CardDescription className="text-base">
+          Only approve a request you started in your terminal. Match the code before granting
+          access.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-5 px-8">
+        {error && <ErrorBox message={error} />}
+        {done ? (
+          <p
+            role="status"
+            className="rounded-lg border border-success/30 bg-success/10 p-4 font-medium text-success"
+          >
+            {done}
           </p>
-          <form onSubmit={lookup}>
-            <Field label="Code displayed in your terminal">
-              <input
-                value={code}
-                onChange={(e) => {
-                  setCode(e.target.value.toUpperCase());
-                  setRequest(null);
-                }}
-                pattern="[A-Z2-9]{4}-[A-Z2-9]{4}"
-                required
-                maxLength={9}
-              />
-            </Field>
-            <Button disabled={busy}>Review request</Button>
-          </form>
-          {request && (
-            <div className="mt-6">
-              <h2 className="text-lg font-semibold">{request.label}</h2>
-              <p>Requested permissions: {request.scopes.join(', ')}</p>
-              <p>Expires {new Date(request.expiresAt).toLocaleTimeString()}</p>
-              <label className="flex gap-3 my-4">
-                <input
-                  type="checkbox"
-                  checked={restricted}
-                  onChange={(e) => setRestricted(e.target.checked)}
+        ) : !user ? (
+          <Link
+            className={cn(buttonVariants({ size: 'lg' }), 'h-10 w-fit px-4 font-semibold')}
+            to={'/login?returnTo=' + encodeURIComponent(destination)}
+          >
+            Sign in to authorize CLI
+          </Link>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Signed in as <strong className="font-semibold text-foreground">{user.email}</strong>
+            </p>
+            <form onSubmit={lookup} className="grid gap-1">
+              <Field label="Code displayed in your terminal">
+                <Input
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value.toUpperCase());
+                    setRequest(null);
+                  }}
+                  pattern="[A-Z2-9]{4}-[A-Z2-9]{4}"
+                  required
+                  maxLength={9}
+                  className="h-12 max-w-xs font-mono text-lg tracking-widest"
                 />
-                Restrict this session to selected Harnesses
-              </label>
-              {restricted ? (
-                <Field label="Harness IDs (separated by commas)">
+              </Field>
+              <Button disabled={busy} className="w-fit">
+                Review request
+              </Button>
+            </form>
+            {request && (
+              <div className="grid gap-4 rounded-xl border bg-muted/40 p-5">
+                <div className="grid gap-1">
+                  <h2 className="text-lg font-semibold text-foreground">{request.label}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Requested permissions: {request.scopes.join(', ')}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Expires {new Date(request.expiresAt).toLocaleTimeString()}
+                  </p>
+                </div>
+                <Separator />
+                <label className="flex items-center gap-3 text-sm font-medium">
                   <input
-                    value={harnessIds}
-                    onChange={(e) => setHarnessIds(e.target.value)}
-                    placeholder="Copy IDs from the Harness CLI page"
+                    type="checkbox"
+                    className="size-4 accent-primary"
+                    checked={restricted}
+                    onChange={(e) => setRestricted(e.target.checked)}
                   />
-                </Field>
-              ) : (
-                <p>
-                  Account-wide access to Harnesses you are permitted to use, including future
-                  memberships.
-                </p>
-              )}
-              <label className="flex gap-3 my-5">
-                <input
-                  type="checkbox"
-                  checked={matched}
-                  onChange={(e) => setMatched(e.target.checked)}
-                />
-                The code {code} matches my terminal.
-              </label>
-              <div className="flex gap-3">
-                <Button disabled={busy || !matched} onClick={() => void decide(true)}>
-                  Authorize CLI
-                </Button>
-                <Button variant="secondary" disabled={busy} onClick={() => void decide(false)}>
-                  Deny
-                </Button>
+                  Restrict this session to selected Harnesses
+                </label>
+                {restricted ? (
+                  <Field label="Harness IDs (separated by commas)">
+                    <Input
+                      value={harnessIds}
+                      onChange={(e) => setHarnessIds(e.target.value)}
+                      placeholder="Copy IDs from the Harness CLI page"
+                    />
+                  </Field>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Account-wide access to Harnesses you are permitted to use, including future
+                    memberships.
+                  </p>
+                )}
+                <label className="flex items-center gap-3 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-primary"
+                    checked={matched}
+                    onChange={(e) => setMatched(e.target.checked)}
+                  />
+                  The code {code} matches my terminal.
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  <Button disabled={busy || !matched} onClick={() => void decide(true)}>
+                    Authorize CLI
+                  </Button>
+                  <Button variant="secondary" disabled={busy} onClick={() => void decide(false)}>
+                    Deny
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-          <button className="mt-5 underline" onClick={() => void transport.logout()}>
-            Sign out to switch account
-          </button>
-        </>
-      )}
-      <p className="mt-5">
-        <Link to="/devices">Manage connected devices</Link>
-      </p>
-    </section>
+            )}
+            <button
+              type="button"
+              className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              onClick={() => void transport.logout()}
+            >
+              Sign out to switch account
+            </button>
+          </>
+        )}
+      </CardContent>
+      <CardFooter className="mx-8 rounded-none border-t bg-transparent px-0 pb-0">
+        <Link
+          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          to="/devices"
+        >
+          Manage connected devices
+        </Link>
+      </CardFooter>
+    </Card>
   );
 }
 type Device = {
@@ -188,31 +238,52 @@ export function ConnectedDevicesPage() {
         description="Browser-authorized CLI sessions. Revocation stops access and refresh credentials."
       />
       {error && <ErrorBox message={error} />}
-      <div className="grid gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
         {items.map((item) => (
-          <section className="panel p-5" key={item.id}>
-            <h2 className="font-semibold">{item.label}</h2>
-            <p>{item.scopes.join(', ')}</p>
-            <p>
-              {item.harnessGrants
-                ? 'Harnesses: ' + item.harnessGrants.join(', ')
-                : 'Account-wide Harness access'}
-            </p>
-            <p>
-              Last active {new Date(item.lastUsedAt).toLocaleString()} · Expires{' '}
-              {new Date(item.expiresAt).toLocaleString()}
-            </p>
-            <Button
-              variant="secondary"
-              disabled={item.revoked || busy === item.id}
-              onClick={() => void revoke(item.id)}
-            >
-              {item.revoked ? 'Revoked' : 'Revoke session'}
-            </Button>
-          </section>
+          <Card key={item.id} data-testid="device-card">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">
+                <h2>{item.label}</h2>
+              </CardTitle>
+              <CardDescription className="break-words">{item.scopes.join(', ')}</CardDescription>
+              <CardAction>
+                <Badge variant={item.revoked ? 'outline' : 'secondary'}>
+                  {item.revoked ? 'Inactive' : 'Active'}
+                </Badge>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="grid gap-1 text-sm text-muted-foreground">
+              <p className="break-words">
+                {item.harnessGrants
+                  ? 'Harnesses: ' + item.harnessGrants.join(', ')
+                  : 'Account-wide Harness access'}
+              </p>
+              <p>
+                Last active {new Date(item.lastUsedAt).toLocaleString()} · Expires{' '}
+                {new Date(item.expiresAt).toLocaleString()}
+              </p>
+            </CardContent>
+            <CardFooter className="justify-end">
+              <Button
+                variant="secondary"
+                disabled={item.revoked || busy === item.id}
+                onClick={() => void revoke(item.id)}
+              >
+                {item.revoked ? 'Revoked' : 'Revoke session'}
+              </Button>
+            </CardFooter>
+          </Card>
         ))}
       </div>
-      {!items.length && !error && <p>No CLI sessions yet. Run sks setup in your codebase.</p>}
+      {!items.length && !error && (
+        <p className="rounded-xl border border-dashed bg-card px-6 py-12 text-center text-muted-foreground">
+          No CLI sessions yet. Run{' '}
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground">
+            sks setup
+          </code>{' '}
+          in your codebase.
+        </p>
+      )}
     </>
   );
 }

@@ -229,7 +229,7 @@ test('browser CLI authorization and local push/pull preserve versions, conflicts
   await expect(page.getByRole('heading', { name: 'Harness history' })).toBeVisible();
   await page.getByRole('button', { name: 'Load older revisions' }).click();
   await expect(
-    page.locator('.panel').filter({ hasText: 'Initial native folders' }).last(),
+    page.getByTestId('history-revision').filter({ hasText: 'Initial native folders' }).last(),
   ).toBeVisible();
   const exported = await run(producer, [
     'git',

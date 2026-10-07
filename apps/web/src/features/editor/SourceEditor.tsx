@@ -140,14 +140,17 @@ monaco.languages.registerCompletionItemProvider('skillshare-markdown', {
     };
   },
 });
+const defaultHeight = 'clamp(480px, 68vh, 980px)';
 export function SourceDiffEditor({
   before,
   after,
   filePath = 'source.md',
+  height = defaultHeight,
 }: {
   before: string;
   after: string;
   filePath?: string;
+  height?: string;
 }) {
   const container = useRef<HTMLDivElement | null>(null);
   const models = useRef<monaco.editor.IDiffEditorModel | null>(null);
@@ -197,7 +200,7 @@ export function SourceDiffEditor({
     <div
       ref={container}
       aria-label={'Compare ' + filePath}
-      style={{ width: '100%', height: 'var(--native-editor-height, clamp(480px, 68vh, 980px))' }}
+      style={{ width: '100%', height }}
     />
   );
 }
@@ -209,6 +212,7 @@ export default function SourceEditor({
   onChange,
   issues,
   onSave,
+  height = defaultHeight,
 }: {
   modelPath: string;
   filePath: string;
@@ -217,6 +221,7 @@ export default function SourceEditor({
   onChange: (value: string) => void;
   issues: NativeIssue[];
   onSave?: () => void;
+  height?: string;
 }) {
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const saveCallback = useRef(onSave);
@@ -258,7 +263,7 @@ export default function SourceEditor({
   useEffect(mark, [issues, modelPath]);
   return (
     <Editor
-      height="var(--native-editor-height, clamp(480px, 68vh, 980px))"
+      height={height}
       path={modelPath}
       language={language}
       value={value}

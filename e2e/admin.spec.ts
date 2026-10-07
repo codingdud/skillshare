@@ -47,17 +47,17 @@ test('admin dashboard, role changes, immediate authorization, themes, and signed
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByRole('heading', { name: 'Platform contributions' })).toBeVisible();
-    await expect(page.locator('.admin-metric')).toHaveCount(4);
+    await expect(page.getByTestId('admin-metric')).toHaveCount(4);
     await page.getByLabel('Time range').selectOption('7');
-    await expect(page.locator('.admin-chart-day')).toHaveCount(7);
+    await expect(page.getByTestId('admin-chart-day')).toHaveCount(7);
     await page.getByText('View daily totals', { exact: true }).click();
-    await expect(page.locator('.admin-daily-data tbody tr')).toHaveCount(7);
+    await expect(page.getByTestId('admin-daily-data').locator('tbody tr')).toHaveCount(7);
     await page.getByText('View daily totals', { exact: true }).click();
     await page.screenshot({ path: '.local/screenshots/admin-desktop.png', fullPage: true });
     await page.getByRole('link', { name: 'Users', exact: true }).click();
     await page.getByLabel('Search name or email').fill('demo@skillshare.test');
     await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await expect(page.locator('.admin-page tbody tr')).toHaveCount(1);
+    await expect(page.getByTestId('admin-page').locator('tbody tr')).toHaveCount(1);
     await page.getByRole('button', { name: 'Make admin', exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -82,10 +82,10 @@ test('admin dashboard, role changes, immediate authorization, themes, and signed
     await expect(page.getByText('Open →', { exact: true })).toHaveCount(0);
     await page.getByRole('link', { name: 'Activity log', exact: true }).click();
     await page.getByLabel('Event group').selectOption('accounts');
-    await expect(page.locator('.admin-events')).toContainText('Role changed from admin to user');
+    await expect(page.getByTestId('admin-events')).toContainText('Role changed from admin to user');
     await page.getByRole('link', { name: 'Monitoring', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Request performance' })).toBeVisible();
-    await expect(page.locator('.admin-metric').first()).toContainText('Healthy');
+    await expect(page.getByTestId('admin-metric').first()).toContainText('Healthy');
     await page.getByRole('button', { name: 'Switch to dark mode' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await page.screenshot({ path: '.local/screenshots/admin-dark.png', fullPage: true });
@@ -100,7 +100,7 @@ test('admin dashboard, role changes, immediate authorization, themes, and signed
       true,
     );
     await page.getByLabel('Account menu').click();
-    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Sign out', exact: true }).click();
     await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/login\?returnTo=/);
