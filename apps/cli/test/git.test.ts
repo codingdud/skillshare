@@ -6,8 +6,8 @@ import { randomUUID, createHash } from 'node:crypto';
 import { canonicalTree } from '@skillshare/contracts';
 const remote = vi.hoisted(() => ({ manifest: null as any, calls: [] as any[] }));
 const identity = vi.hoisted(() => ({ id: '833c21c5-e266-425c-9cdd-3c6d148a645a' }));
-vi.mock('./config.js', async (original) => ({
-  ...(await original<typeof import('./config.js')>()),
+vi.mock('../src/lib/config.js', async (original) => ({
+  ...(await original<typeof import('../src/lib/config.js')>()),
   binding: async () => ({
     schemaVersion: 1,
     server: 'http://localhost:4000',
@@ -15,7 +15,7 @@ vi.mock('./config.js', async (original) => ({
     profiles: ['claude-code'],
   }),
 }));
-vi.mock('./auth.js', () => ({
+vi.mock('../src/lib/auth.js', () => ({
   Client: class {
     async call(path: string, method = 'GET', body?: unknown) {
       remote.calls.push({ path, method, body });
@@ -25,7 +25,7 @@ vi.mock('./auth.js', () => ({
     }
   },
 }));
-import { git, readGitTree, importGit, exportGit } from './git.js';
+import { git, readGitTree, importGit, exportGit } from '../src/lib/git.js';
 let root: string;
 const manifest = (files: any[]) => ({
   protocolVersion: 1,

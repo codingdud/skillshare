@@ -17,7 +17,7 @@ import {
   safePath,
   withWorkspaceLock,
   finishPull,
-} from './files.js';
+} from '../src/lib/files.js';
 import {
   atomicJSON,
   saveState,
@@ -26,7 +26,7 @@ import {
   baseFile,
   stateFile,
   settingsFile,
-} from './config.js';
+} from '../src/lib/config.js';
 const remote = vi.hoisted(() => ({
   value: null as any,
   requests: [] as any[],
@@ -55,7 +55,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     },
   };
 });
-vi.mock('./auth.js', () => ({
+vi.mock('../src/lib/auth.js', () => ({
   ApiError: class extends Error {},
   Client: class {
     async call(path: string, method = 'GET', body?: any) {
@@ -84,7 +84,7 @@ vi.mock('./auth.js', () => ({
     }
   },
 }));
-import { synchronize, resolveConflict, repair } from './sync.js';
+import { synchronize, resolveConflict, repair } from '../src/lib/sync.js';
 let root: string, accountDir: string;
 const b: Binding = {
   schemaVersion: 1,

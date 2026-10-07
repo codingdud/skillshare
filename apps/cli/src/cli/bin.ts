@@ -3,11 +3,19 @@ import { resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { mkdir, realpath } from 'node:fs/promises';
 import { runtimeIds, type Binding } from '@skillshare/contracts';
-import { serverURL, settings, settingsFile, atomicJSON, projectRoot, binding } from './config.js';
-import { login, logout, Client } from './auth.js';
-import { add, synchronize, publish, resolveConflict, repair, assertUnbound } from './sync.js';
-import { recover, recoveryBinding, withWorkspaceLock } from './files.js';
-import { importGit, exportGit } from './git.js';
+import {
+  DEFAULT_SERVER,
+  serverURL,
+  settings,
+  settingsFile,
+  atomicJSON,
+  projectRoot,
+  binding,
+} from '../lib/config.js';
+import { login, logout, Client } from '../lib/auth.js';
+import { add, synchronize, publish, resolveConflict, repair, assertUnbound } from '../lib/sync.js';
+import { recover, recoveryBinding, withWorkspaceLock } from '../lib/files.js';
+import { importGit, exportGit } from '../lib/git.js';
 declare const CLI_VERSION: string;
 
 const { values, positionals } = parseArgs({
@@ -87,7 +95,7 @@ async function main() {
     if (![...common, ...(flags[command] ?? [])].includes(flag))
       throw new Error('--' + flag + ' is unsupported for ' + command + '. No action was taken.');
   const cfg = await settings(),
-    server = serverURL(values.server ?? cfg.server ?? 'http://localhost:4000');
+    server = serverURL(values.server ?? cfg.server ?? DEFAULT_SERVER);
   if (command === 'setup' || (command === 'auth' && argument === 'login')) {
     const storage = values.storage ?? 'auto';
     await login(server, {

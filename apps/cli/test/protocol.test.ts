@@ -9,7 +9,7 @@ import {
   compareSync,
   nextStablePatch,
 } from '@skillshare/contracts';
-import { treeHash } from './files.js';
+import { treeHash } from '../src/lib/files.js';
 
 describe('portable synchronization contract', () => {
   it('rejects ancestor collisions, equivalent names, and nonportable paths before writing', () => {

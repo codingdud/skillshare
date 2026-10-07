@@ -34,7 +34,7 @@ const plugin = {
   },
 };
 await build({
-  entryPoints: [path.join(directory, 'src/bin.ts')],
+  entryPoints: [path.join(directory, 'src/cli/bin.ts')],
   outfile: path.join(directory, 'dist/bin.js'),
   define: { CLI_VERSION: JSON.stringify(pkg.version) },
   bundle: true,

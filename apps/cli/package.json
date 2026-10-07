@@ -1,6 +1,6 @@
 {
   "name": "@skillsync/cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Browser-authenticated CLI for syncing native AI Harness files with SkillShare.",
   "type": "module",
   "repository": {

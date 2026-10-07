@@ -14,6 +14,7 @@ import {
 
 export const userDir = () =>
   resolve(process.env.SKILLSHARE_CONFIG_DIR ?? join(homedir(), '.config', 'skillshare'));
+export const DEFAULT_SERVER = 'https://skillshare.animeshk384.workers.dev';
 export const serverURL = (value: string) => {
   const url = new URL(value);
   if (

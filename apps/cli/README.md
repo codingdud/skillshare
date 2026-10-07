@@ -13,7 +13,7 @@ Development workspace: **apps/cli**. From the repository root, use **npm run cli
 On Windows, **npm run cli:publish:token** securely prompts for an npm granular token. Select **Read and write (publish and stage)** for the **@skillsync** package scope and enable **Bypass 2FA**. Organization-management access alone is insufficient. The helper uses a temporary registry-scoped environment-variable configuration and cleans it up afterward. Do not share tokens in chat or commit them. See [npm's token documentation](https://docs.npmjs.com/creating-and-viewing-access-tokens/).
 
 ```sh
-sks setup --server http://localhost:4000
+sks setup
 sks add <harness-id> --profile claude-code --link-only
 sks push --dry-run
 sks push -m "Update agent instructions"

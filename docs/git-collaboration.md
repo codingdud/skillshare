@@ -50,7 +50,7 @@ Opening a proposal records its immutable ID in the browser URL (`/harnesses/ID/c
 The local build is `@skillsync/cli` **0.1.4**, executable **sks**. Git must be installed. Run from the Git worktree root after authenticating and binding the Harness. Supported profiles and existing push/pull remain unchanged.
 
 ```sh
-sks setup --server http://localhost:4000
+sks setup
 sks add HARNESS_ID --profile claude-code --link-only
 
 # Import committed bytes, not unsaved editor changes.

@@ -82,7 +82,8 @@ async function protectedDirectory() {
   const directory = join(userDir(), 'credentials');
   await mkdir(directory, { recursive: true, mode: 0o700 });
   if (process.platform === 'win32') {
-    const who = await exec('whoami', ['/user', '/fo', 'csv', '/nh'], { windowsHide: true });
+    const whoami = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'whoami.exe');
+    const who = await exec(whoami, ['/user', '/fo', 'csv', '/nh'], { windowsHide: true });
     const sid = who.stdout.match(/S-1-[0-9-]+/)?.[0];
     if (!sid) throw new Error('Unable to determine credential owner SID.');
     await exec('icacls', [directory, '/inheritance:r', '/grant:r', '*' + sid + ':(OI)(CI)F'], {

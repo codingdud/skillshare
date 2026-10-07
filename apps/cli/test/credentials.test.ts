@@ -6,10 +6,10 @@ import {
   credentialStore,
   selectCredentialStorage,
   protectWindows,
-} from './credentials.js';
-import { loadKeyring } from './keyring.js';
-import { login } from './auth.js';
-vi.mock('./keyring.js', () => ({ loadKeyring: vi.fn() }));
+} from '../src/lib/credentials.js';
+import { loadKeyring } from '../src/lib/keyring.js';
+import { login } from '../src/lib/auth.js';
+vi.mock('../src/lib/keyring.js', () => ({ loadKeyring: vi.fn() }));
 let root: string, previous: string | undefined;
 beforeEach(async () => {
   await mkdir(resolve('.local'), { recursive: true });

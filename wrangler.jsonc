@@ -5,6 +5,11 @@
   "vars": {
     "VITE_API_URL": "https://skillshare-lovat.vercel.app"
   },
+  "previews": {
+    "vars": {
+      "VITE_API_URL": "https://skillshare-lovat.vercel.app"
+    }
+  },
   "assets": {
     "directory": "./apps/web/dist",
     "binding": "ASSETS",

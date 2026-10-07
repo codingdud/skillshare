@@ -6,8 +6,8 @@ import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { compareSync, type Binding, type SyncFile } from '../../packages/contracts/src/index.ts';
-import { atomicJSON, settingsFile, saveState } from '../../apps/cli/src/config.ts';
-import { applyPull, treeHash } from '../../apps/cli/src/files.ts';
+import { atomicJSON, settingsFile, saveState } from '../../apps/cli/src/lib/config.ts';
+import { applyPull, treeHash } from '../../apps/cli/src/lib/files.ts';
 const directory = await mkdtemp(resolve('.local/audits/flags-'));
 process.env.SKILLSHARE_CONFIG_DIR = join(directory, 'account');
 const file = (content: string): SyncFile => ({

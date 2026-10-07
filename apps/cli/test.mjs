@@ -7,7 +7,7 @@ const result = spawnSync(
   [
     path.join(root, 'node_modules/vitest/vitest.mjs'),
     'run',
-    'apps/cli/src',
+    'apps/cli/test',
     '--configLoader',
     'native',
   ],

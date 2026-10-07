@@ -18,10 +18,10 @@ import {
   stateFile,
   stateUpdates,
   settingsFile,
-} from '../../apps/cli/src/config.ts';
-import { applyPull, recover, scan, treeHash } from '../../apps/cli/src/files.ts';
-import { Client } from '../../apps/cli/src/auth.ts';
-import { synchronize, add } from '../../apps/cli/src/sync.ts';
+} from '../../apps/cli/src/lib/config.ts';
+import { applyPull, recover, scan, treeHash } from '../../apps/cli/src/lib/files.ts';
+import { Client } from '../../apps/cli/src/lib/auth.ts';
+import { synchronize, add } from '../../apps/cli/src/lib/sync.ts';
 
 const directory = await mkdtemp(resolve('.local/audits/fixtures-'));
 process.env.SKILLSHARE_CONFIG_DIR = join(directory, 'account');

@@ -39,11 +39,11 @@ npx @skillsync/cli --help
 ## Authenticate, upload, and pull
 
 ```sh
-npx @skillsync/cli setup --server http://localhost:4000
+npx @skillsync/cli setup
 # Windows can explicitly select encrypted storage without a native npm adapter:
-npx @skillsync/cli setup --server http://localhost:4000 --storage dpapi
+npx @skillsync/cli setup --storage dpapi
 # To explicitly select restricted plaintext file storage:
-npx @skillsync/cli setup --server http://localhost:4000 --storage file
+npx @skillsync/cli setup --storage file
 
 npx @skillsync/cli add HARNESS_ID --profile claude-code --profile gemini-cli --link-only
 npx @skillsync/cli status
