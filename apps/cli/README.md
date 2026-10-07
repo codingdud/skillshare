@@ -6,7 +6,7 @@ Package: **@skillsync/cli**. Short command: **sks**.
 
 Install globally with **npm install -g @skillsync/cli**, then run **sks setup**. In a codebase, install with **npm install --save-dev @skillsync/cli** and use **npx sks**. To run without a local installation, use **npx --package=@skillsync/cli sks setup**.
 
-Package page: [@skillsync/cli on npm](https://www.npmjs.com/package/@skillsync/cli). For development builds, install the locally packed **skillsync-cli-0.1.3.tgz** tarball instead.
+Package page: [@skillsync/cli on npm](https://www.npmjs.com/package/@skillsync/cli). For development builds, install the locally packed **skillsync-cli-0.1.4.tgz** tarball instead.
 
 Development workspace: **apps/cli**. From the repository root, use **npm run cli:check**, **npm run cli:pack**, **npm run cli:publish:dry-run**, and **npm run cli:publish**. Packing rebuilds the executable; publishing first checks types and tests. Public publication requires an npm account authorized for the package scope.
 

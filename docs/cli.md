@@ -15,7 +15,7 @@ npm run cli:check
 npm run cli:pack
 ```
 
-`cli:check` runs the CLI type check, filesystem/synchronization tests, build, and executable help smoke check. `cli:pack` rebuilds through npm's `prepack` lifecycle and writes `.local/skillsync-cli-0.1.3.tgz`. Only built output, README, and package metadata are shipped. The browser/API are separate applications and are not included.
+`cli:check` runs the CLI type check, filesystem/synchronization tests, build, and executable help smoke check. `cli:pack` rebuilds through npm's `prepack` lifecycle and writes `.local/skillsync-cli-0.1.4.tgz`. Only built output, README, and package metadata are shipped. The browser/API are separate applications and are not included.
 
 Additional commands:
 
@@ -32,7 +32,7 @@ The browser tests require the running API, web app, migrated database, and local
 For testing development builds, install the local tarball into a developer repository:
 
 ```sh
-npm install --save-dev /absolute/path/to/skillsync-cli-0.1.3.tgz
+npm install --save-dev /absolute/path/to/skillsync-cli-0.1.4.tgz
 npx @skillsync/cli --help
 ```
 
