@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { mkdir, realpath } from 'node:fs/promises';
-import { runtimeIds, type Binding } from '@skillshare/contracts';
+import { runtimeIds, harnessReleaseSchema, type Binding } from '@skillshare/contracts';
 import {
   DEFAULT_SERVER,
   serverURL,
@@ -11,9 +11,20 @@ import {
   atomicJSON,
   projectRoot,
   binding,
+  isBound,
 } from '../lib/config.js';
 import { login, logout, Client } from '../lib/auth.js';
 import { add, synchronize, publish, resolveConflict, repair, assertUnbound } from '../lib/sync.js';
+import { isInteractive, terminalPrompter } from '../lib/prompt.js';
+import { latestVersion, bumpVersion, draftMatchesLatestRelease } from '../lib/release.js';
+import {
+  parseProfiles,
+  pickProfiles,
+  planNewHarness,
+  createRemoteHarness,
+  chooseHarness,
+  type NewHarness,
+} from '../lib/scaffold.js';
 import { recover, recoveryBinding, withWorkspaceLock } from '../lib/files.js';
 import { importGit, exportGit } from '../lib/git.js';
 declare const CLI_VERSION: string;
@@ -23,7 +34,8 @@ const { values, positionals } = parseArgs({
   strict: true,
   options: {
     server: { type: 'string' },
-    profile: { type: 'string', multiple: true },
+    profile: { type: 'string', multiple: true, short: 'p' },
+    visibility: { type: 'string' },
     root: { type: 'string' },
     storage: { type: 'string' },
     'no-browser': { type: 'boolean' },
@@ -35,7 +47,7 @@ const { values, positionals } = parseArgs({
     'ignore-crlf': { type: 'boolean' },
     'allow-delete': { type: 'boolean' },
     draft: { type: 'boolean' },
-    yes: { type: 'boolean' },
+    yes: { type: 'boolean', short: 'y' },
     version: { type: 'string' },
     keep: { type: 'string' },
     message: { type: 'string', short: 'm' },
@@ -54,9 +66,9 @@ async function main() {
     console.log(
       'SkillSync CLI ' +
         CLI_VERSION +
-        '\n\nsetup [--server ORIGIN] [--profile NAME] [--storage auto|keyring|dpapi|file]\nauth login|status|logout\ninit --name NAME --description TEXT [--profile NAME]\nadd <harness-id> [--version X.Y.Z | --draft | --link-only] --profile NAME [--yes]\nstatus | diff [--offline] [--ignore-crlf]\npush [-m MESSAGE] [--dry-run] [--allow-delete]\npull [--version X.Y.Z | --draft] [--dry-run] [--yes] [--allow-delete]\nresolve <path> --keep local|remote [--draft | --version X.Y.Z] --yes\npublish <X.Y.Z> --notes TEXT [--dry-run | --yes]\nrepair (--version X.Y.Z | --from-local) [--dry-run | --yes]\nrecover [--dry-run]\ngit import [--ref HEAD] [-m TITLE] [--notes TEXT] [--dry-run | --yes]\ngit export --branch skillsync/NAME [--version X.Y.Z] [--ref HEAD] [--dry-run | --yes]\n\nProfiles: ' +
+        '\n\nsetup [--server ORIGIN] [-p NAME] [--storage auto|keyring|dpapi|file]\nauth login|status|logout\ninit [--name NAME] [--description TEXT] [--visibility private|team|public] [-p NAME] [-y]\nadd [<harness-id>] [--version X.Y.Z | --draft | --link-only] [-p NAME] [--yes]\nstatus | diff [--offline] [--ignore-crlf]\npush [-m MESSAGE] [-p NAME] [--dry-run] [--allow-delete] [-y]\npull [--version X.Y.Z | --draft] [--dry-run] [--yes] [--allow-delete]\nresolve <path> --keep local|remote [--draft | --version X.Y.Z] --yes\npublish [X.Y.Z | patch | minor | major] [--notes TEXT] [--dry-run] [-y]   (pushes local changes, bumps the version, publishes)\nrepair (--version X.Y.Z | --from-local) [--dry-run | --yes]\nrecover [--dry-run]\ngit import [--ref HEAD] [-m TITLE] [--notes TEXT] [--dry-run | --yes]\ngit export --branch skillsync/NAME [--version X.Y.Z] [--ref HEAD] [--dry-run | --yes]\n\nProfiles: ' +
         runtimeIds.join(', ') +
-        '\nUse --root PATH to select a codebase. Pull and add require --yes after reviewing native configuration changes.',
+        ' (aliases: claude, gemini, copilot; repeat -p or comma-separate)\nUse --root PATH to select a codebase. Pull and add require --yes after reviewing native configuration changes.\nIn a terminal, init, add without an ID, and push in an unlinked folder ask for missing details with defaults; -y accepts the defaults.',
     );
     return;
   }
@@ -76,14 +88,36 @@ async function main() {
   const flags: Record<string, string[]> = {
     setup: ['server', 'profile', 'storage', 'no-browser', 'read-only'],
     auth: ['server', 'storage', 'no-browser', 'read-only'],
-    init: ['server', 'profile', 'name', 'description'],
-    add: ['server', 'profile', 'version', 'draft', 'link-only', 'dry-run', 'yes', 'allow-delete'],
+    init: ['server', 'profile', 'name', 'description', 'visibility', 'yes'],
+    add: [
+      'server',
+      'profile',
+      'name',
+      'description',
+      'visibility',
+      'version',
+      'draft',
+      'link-only',
+      'dry-run',
+      'yes',
+      'allow-delete',
+    ],
     status: ['offline', 'ignore-crlf'],
     diff: ['offline', 'ignore-crlf'],
-    push: ['message', 'dry-run', 'allow-delete', 'ignore-crlf'],
+    push: [
+      'message',
+      'profile',
+      'name',
+      'description',
+      'visibility',
+      'yes',
+      'dry-run',
+      'allow-delete',
+      'ignore-crlf',
+    ],
     pull: ['version', 'draft', 'dry-run', 'yes', 'allow-delete', 'ignore-crlf'],
     resolve: ['keep', 'version', 'draft', 'yes', 'dry-run', 'allow-delete', 'ignore-crlf'],
-    publish: ['notes', 'yes', 'dry-run'],
+    publish: ['notes', 'message', 'yes', 'dry-run', 'allow-delete', 'ignore-crlf'],
     recover: ['dry-run'],
     repair: ['version', 'from-local', 'yes', 'dry-run'],
     git:
@@ -104,15 +138,12 @@ async function main() {
       readOnly: values['read-only'],
     });
     if (command === 'setup') {
-      const profiles = values.profile ?? [];
-      for (const profile of profiles)
-        if (!(runtimeIds as readonly string[]).includes(profile))
-          throw new Error('Unknown runtime profile ' + profile);
+      const profiles = parseProfiles(values.profile);
       console.log(
         'Runtime profiles: ' + (profiles.join(', ') || 'Choose profiles when using add or init.'),
       );
       console.log(
-        'Next: sks add <harness-id> --profile <runtime> --link-only (upload local files) or --yes (install release).',
+        'Next: sks push -p <runtime> (creates a Harness if none is linked), or sks add <harness-id> -p <runtime> --link-only / --yes.',
       );
     }
     return;
@@ -160,43 +191,140 @@ async function main() {
     else throw new Error('Use git import or git export.');
     return;
   }
+  const requireAccount = () => {
+    if (!cfg.accounts?.[server])
+      throw new Error('Not authenticated for ' + server + '. Run sks setup first.');
+  };
+  const given = {
+    name: values.name,
+    description: values.description,
+    visibility: values.visibility,
+    profiles: parseProfiles(values.profile),
+  };
   if (command === 'add' || command === 'init') {
-    const profiles = values.profile ?? [];
-    if (!profiles.length || profiles.some((p) => !(runtimeIds as readonly string[]).includes(p)))
-      throw new Error(
-        'Select runtime profile(s) with --profile. Supported: ' + runtimeIds.join(', '),
-      );
-    if (new Set(profiles).size !== profiles.length)
-      throw new Error('Select each runtime profile once.');
-    if (command === 'init' && (!values.name || !values.description))
-      throw new Error('init requires --name and --description (at least 10 characters).');
-    if (command === 'add' && !argument) throw new Error('add requires a Harness ID.');
-    await mutate(async () => {
+    const prompter = isInteractive() && !values.yes ? terminalPrompter() : null;
+    try {
       await assertUnbound(root);
+      let profiles = given.profiles;
       let id = argument;
-      if (command === 'init') {
-        const created = await new Client(server).call('/api/harnesses', 'POST', {
-          name: values.name!,
-          slug: values
-            .name!.toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, ''),
-          description: values.description!,
-          visibility: 'private',
-          files: [],
-        });
-        id = created.id;
-        console.log('Created private Harness ' + id);
+      let plan: NewHarness | undefined;
+      let linkOnly = command === 'init' || !!values['link-only'];
+      if (command === 'add' && !id) {
+        if (!prompter)
+          throw new Error('add requires a Harness ID. Run it in a terminal to choose one.');
+        requireAccount();
+        const list = await new Client(server).call('/api/harnesses?scope=workspace');
+        const picked = await chooseHarness(list.items ?? [], prompter);
+        if (picked) {
+          id = picked.id;
+          if (!values.draft && !values.version) {
+            linkOnly = true;
+            prompter.say('Linking only; run sks pull to download its files.');
+          }
+        }
       }
-      await add(
-        root,
-        { schemaVersion: 1, server, harnessId: id!, profiles: profiles as Binding['profiles'] },
-        { ...options, linkOnly: command === 'init' || values['link-only'] },
+      if (command === 'init' || !id) {
+        if (command === 'init' && !prompter && !values.yes && (!values.name || !values.description))
+          throw new Error(
+            'init requires --name and --description (at least 10 characters), or run it in a terminal, or pass --yes for defaults.',
+          );
+        plan = await planNewHarness(root, given, prompter);
+        profiles = plan.profiles;
+        linkOnly = true;
+      } else if (!profiles.length) {
+        if (!prompter)
+          throw new Error(
+            'Select runtime profile(s) with -p/--profile. Supported: ' + runtimeIds.join(', '),
+          );
+        profiles = await pickProfiles(root, prompter);
+      }
+      if (plan && values['dry-run']) {
+        console.log(
+          'Would create ' +
+            plan.visibility +
+            ' Harness "' +
+            plan.name +
+            '" (' +
+            plan.profiles.join(', ') +
+            ').',
+        );
+        return;
+      }
+      await mutate(async () => {
+        if (plan) {
+          if (command === 'add') requireAccount();
+          id = await createRemoteHarness(new Client(server), plan, prompter);
+          console.log('Created ' + plan.visibility + ' Harness ' + id);
+        }
+        await add(
+          root,
+          { schemaVersion: 1, server, harnessId: id!, profiles: profiles as Binding['profiles'] },
+          { ...options, linkOnly },
+        );
+      });
+    } finally {
+      prompter?.close();
+    }
+    return;
+  }
+  if (command === 'push' && !(await isBound(root))) {
+    requireAccount();
+    if (values['dry-run']) {
+      const plan = await planNewHarness(root, given, null, { requireFiles: true });
+      console.log(
+        'No Harness is linked. Push would create ' +
+          plan.visibility +
+          ' Harness "' +
+          plan.name +
+          '" (' +
+          plan.profiles.join(', ') +
+          ') and upload the local files.',
       );
-    });
+      return;
+    }
+    const prompter = isInteractive() && !values.yes ? terminalPrompter() : null;
+    if (!prompter && !values.yes)
+      throw new Error(
+        'No Harness is linked to this folder. Run in a terminal to create one, pass --yes to create one with defaults, or link an existing one with sks add <id> -p <profile>.',
+      );
+    try {
+      if (prompter) {
+        prompter.say('No Harness is linked to ' + root + '.');
+        if (/^n/i.test(await prompter.ask('Create one now? (Y/n)', 'y')))
+          throw new Error('Nothing pushed. Link an existing Harness with sks add <id>.');
+      }
+      const plan = await planNewHarness(root, given, prompter, { requireFiles: true });
+      await mutate(async () => {
+        await assertUnbound(root);
+        const id = await createRemoteHarness(new Client(server), plan, prompter);
+        console.log('Created ' + plan.visibility + ' Harness ' + id);
+        await add(
+          root,
+          { schemaVersion: 1, server, harnessId: id, profiles: plan.profiles },
+          { ...options, linkOnly: true },
+        );
+        await synchronize(root, 'push', options);
+      });
+    } finally {
+      prompter?.close();
+    }
     return;
   }
   if (['push', 'pull', 'status', 'diff'].includes(command)) {
+    if (command === 'push') {
+      if (given.profiles.length) {
+        const bound = (await binding(root)).profiles;
+        if (JSON.stringify([...bound].sort()) !== JSON.stringify([...given.profiles].sort()))
+          throw new Error(
+            'This folder is linked with profile(s) ' +
+              bound.join(', ') +
+              '; -p ' +
+              given.profiles.join(', ') +
+              ' does not match. Omit -p, or link again with sks add.',
+          );
+      }
+      if (resolve(root) !== resolve(process.cwd())) console.log('Using Harness binding at ' + root);
+    }
     const work = () => synchronize(root, command as 'push' | 'pull' | 'status' | 'diff', options);
     if (command === 'status' || command === 'diff') await work();
     else await mutate(work);
@@ -232,11 +360,55 @@ async function main() {
     return;
   }
   if (command === 'publish') {
-    if (!argument || !values.notes || (!values.yes && !values['dry-run']))
+    if (!(await isBound(root)))
+      throw new Error('No Harness is linked to this folder. Run sks push (or sks add <id>) first.');
+    const b = await binding(root);
+    const client = new Client(b.server);
+    const releases = await client.call('/api/harnesses/' + b.harnessId + '/releases');
+    const latest = latestVersion(releases.items ?? []);
+    const version = bumpVersion(latest, argument);
+    const dryRun = !!values['dry-run'];
+    const prompter = isInteractive() && !values.yes && !dryRun ? terminalPrompter() : null;
+    if (!prompter && !values.yes && !dryRun)
       throw new Error(
-        'publish requires version, --notes, and --yes after reviewing the full remote Harness.',
+        'publish pushes local changes and creates a release. Run it in a terminal to confirm, or pass --yes (use --dry-run to preview).',
       );
-    await mutate(() => publish(root, argument, values.notes!, !!values['dry-run']));
+    try {
+      let notes = values.notes ?? values.message;
+      if (prompter) {
+        prompter.say(
+          (latest ? 'Latest release is ' + latest + '. ' : 'No release yet. ') +
+            'This will publish ' +
+            version +
+            '.',
+        );
+        notes ??= await prompter.ask('Release notes', 'Release ' + version);
+        if (
+          /^n/i.test(
+            await prompter.ask('Push local changes and publish ' + version + '? (Y/n)', 'y'),
+          )
+        )
+          throw new Error('Nothing published.');
+      }
+      notes ??= 'Release ' + version;
+      harnessReleaseSchema.parse({ revision: 1, version, notes });
+      const pushOptions = { ...options, message: values.message ?? 'Release ' + version };
+      if (dryRun) {
+        await synchronize(root, 'push', pushOptions);
+        console.log('Dry run: would then publish ' + version + ' ("' + notes + '").');
+        return;
+      }
+      await mutate(async () => {
+        await synchronize(root, 'push', pushOptions);
+        if (latest && (await draftMatchesLatestRelease(client, b.harnessId))) {
+          console.log('Nothing changed since ' + latest + '; not publishing ' + version + '.');
+          return;
+        }
+        await publish(root, version, notes!, false);
+      });
+    } finally {
+      prompter?.close();
+    }
     return;
   }
   throw new Error('Unknown command ' + command + '. Use --help.');

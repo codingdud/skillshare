@@ -14,15 +14,24 @@ On Windows, **npm run cli:publish:token** securely prompts for an npm granular t
 
 ```sh
 sks setup
-sks add <harness-id> --profile claude-code --link-only
+sks push -p claude-code
+sks add
+sks add <harness-id> -p claude-code --link-only
 sks push --dry-run
 sks push -m "Update agent instructions"
 sks pull --draft --dry-run
 sks pull --draft --yes
-sks publish 1.1.0 --notes "Updated instructions" --yes
+sks publish
+sks publish minor --notes "Updated instructions" -y
 ```
 
-For published content, use **add ID --profile NAME --version 1.0.0 --yes**. Subsequent pulls stay on the installed release unless **--version** selects another release. **--draft** pulls the current owner draft.
+**publish** pushes your local changes first, then bumps the version from the latest release (patch by default; **minor**, **major**, or an explicit newer **X.Y.Z** also work; the first release is 1.0.0) and publishes it. In a terminal it asks for release notes (default "Release X.Y.Z") and confirms; scripts must pass **-y**. **--dry-run** previews the push and the version. If nothing changed since the latest release, it pushes but does not publish a duplicate.
+
+**push** in a folder with no linked Harness offers to create one. In a terminal it asks for a name (default from package.json or the folder), runtime profiles (detected from **.claude**, **.gemini**, and **.github/agents|instructions|skills|hooks**), a description, and visibility (default private), then creates the Harness, links it, and pushes. Pass **-p NAME** (repeat or comma-separate; **claude**, **gemini**, and **copilot** are aliases), **--name**, **--description**, and **--visibility** to skip questions, or **-y** to accept every default without prompting, which also works in scripts. It refuses to create an empty Harness when the selected profile folder is missing. **--dry-run** shows what would be created and changes nothing. When a Harness is already linked, **-p** must match its profiles.
+
+**add** with no ID, in a terminal, lists your Harnesses to link (link-only, keeping local files) or creates a new one. **init** asks for any missing name, description, or profile the same way.
+
+For published content, use **add ID -p NAME --version 1.0.0 --yes**. Subsequent pulls stay on the installed release unless **--version** selects another release. **--draft** pulls the current owner draft.
 
 Pull compares the remote files with the last synchronized baseline and local edits. Conflicts stop writes. Deletions require **--allow-delete**. Native MCP/hook/permission files are previewed and require **--yes** for local application. Imported commands are never executed by this CLI.
 
@@ -46,7 +55,7 @@ Browser authorization uses an independent CLI session. Setup checks storage befo
 
 If you explicitly request **--storage keyring** and the optional adapter is missing in this workspace, run **npm install --include=optional** in the repository root. Alternatively run **npx sks setup --storage dpapi** on Windows or explicitly use **--storage file**. Unavailable storage is reported before creating an authorization request.
 
-**init --name NAME --description TEXT --profile NAME** creates a private Harness for existing local files. Runtime profiles can be repeated. One codebase binds to one Harness; references outside the managed native roots, binaries, symlinks/junctions, and secret/local-state files are excluded or rejected.
+**init [--name NAME] [--description TEXT] [-p NAME]** creates a Harness (private by default) for existing local files; outside a terminal without **-y**, name and description are required. Runtime profiles can be repeated. One codebase binds to one Harness; references outside the managed native roots, binaries, symlinks/junctions, and secret/local-state files are excluded or rejected.
 
 Use **--help** for the full command list. Node.js 22.12 or newer is required.
 

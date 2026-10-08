@@ -100,6 +100,15 @@ export async function projectRoot(explicit?: string) {
     current = parent;
   }
 }
+export async function isBound(root: string) {
+  try {
+    await lstat(join(root, '.skillshare', 'config.json'));
+    return true;
+  } catch (error) {
+    if (missing(error)) return false;
+    throw error;
+  }
+}
 export async function binding(root: string): Promise<Binding> {
   const value = bindingSchema.parse(await jsonRead(join(root, '.skillshare', 'config.json')));
   value.server = serverURL(value.server);

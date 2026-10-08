@@ -52,14 +52,21 @@ npx @skillsync/cli push --dry-run
 npx @skillsync/cli push -m "Update agent and hook"
 npx @skillsync/cli pull --draft --dry-run
 npx @skillsync/cli pull --draft --yes
-npx @skillsync/cli publish 1.0.0 --notes "First native configuration" --yes
+npx @skillsync/cli publish --notes "First native configuration"
+# Equivalent without prompts: publish patch -y. Also accepts minor, major, or an explicit newer X.Y.Z.
 ```
 
 `setup` starts a short-lived device grant. The browser displays the terminal code, account, and requested capabilities; users may approve or deny it. No SkillShare password is entered in the terminal. Use `--no-browser` for a manual verification URL and `--read-only` for a read-only session.
 
 Supported profile names: `claude-code`, `gemini-cli`, `copilot-cli`, `copilot-vscode`, and `copilot-cloud`. Repeat `--profile` when binding. Native MCP, hooks, settings, agents, and skill resources remain in their documented runtime paths; SkillShare never inserts invented keys into third-party configuration.
 
-To create a new remote private Harness from local files:
+To create a new remote Harness from local files, the shortest path is `push` in an unlinked folder:
+
+```sh
+npx @skillsync/cli push -p claude-code
+```
+
+In a terminal it asks for a name, description, and visibility (defaults: package or folder name, a generated description, private), creates and links the Harness, then pushes. `-p` accepts repeated or comma-separated profiles and the aliases `claude`, `gemini`, and `copilot`; `--name`, `--description`, and `--visibility` skip individual questions; `-y` accepts all defaults without prompting (the only non-terminal way to auto-create). It will not create an empty Harness when the selected profile's folder is missing. `add` with no ID lists your Harnesses to link, or creates one. The explicit form still works:
 
 ```sh
 npx @skillsync/cli init --name my-toolkit --description "Reusable development review tools" --profile claude-code
