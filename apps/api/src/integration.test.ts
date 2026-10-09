@@ -104,6 +104,9 @@ beforeAll(async () => {
       'utf8',
     ),
   );
+  await state.db.exec(
+    await readFile(new URL('./db/migrations/012-harness-ratings.sql', import.meta.url), 'utf8'),
+  );
   const owner = await post('/auth/register')
     .send({ name: 'Owner', email: 'owner@example.com', password: 'long-and-unique-password' })
     .expect(201);

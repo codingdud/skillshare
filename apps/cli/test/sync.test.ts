@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, mkdir, readFile, writeFile, rm, lstat, symlink, unlink } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import {
   compareSync,
   selectedSyncPath,
@@ -114,6 +114,7 @@ function setRemote(files: SyncFile[], revision = 2) {
   };
 }
 beforeEach(async () => {
+  await mkdir(resolve('.local'), { recursive: true });
   root = await mkdtemp(resolve('.local/cli-test-'));
   accountDir = await mkdtemp(resolve('.local/cli-account-'));
   process.env.SKILLSHARE_CONFIG_DIR = accountDir;
@@ -131,12 +132,8 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.restoreAllMocks();
   delete process.env.SKILLSHARE_CONFIG_DIR;
-  if (
-    !root.startsWith(resolve('.local') + '\\') ||
-    !accountDir.startsWith(resolve('.local') + '\\')
-  ) {
-    if (process.platform === 'win32') throw new Error('Unsafe cleanup path');
-  }
+  if (!root.startsWith(resolve('.local') + sep) || !accountDir.startsWith(resolve('.local') + sep))
+    throw new Error('Unsafe cleanup path');
   await rm(root, { recursive: true, force: true });
   await rm(accountDir, { recursive: true, force: true });
 });
