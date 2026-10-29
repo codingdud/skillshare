@@ -14,27 +14,27 @@
     "admin:grant": "tsx --env-file-if-exists=.env src/db/grant-admin.ts"
   },
   "dependencies": {
-    "@electric-sql/pglite": "latest",
+    "@electric-sql/pglite": "*",
     "@skillshare/contracts": "*",
-    "argon2": "latest",
-    "cookie-parser": "latest",
-    "cors": "latest",
-    "express": "latest",
-    "express-rate-limit": "latest",
+    "argon2": "*",
+    "cookie-parser": "*",
+    "cors": "*",
+    "express": "*",
+    "express-rate-limit": "*",
     "fflate": "^0.8.3",
-    "helmet": "latest",
-    "jose": "latest",
+    "helmet": "*",
+    "jose": "*",
     "nodemailer": "^10.0.12",
-    "pg": "latest",
-    "zod": "latest"
+    "pg": "*",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/cookie-parser": "latest",
-    "@types/cors": "latest",
-    "@types/express": "latest",
+    "@types/cookie-parser": "*",
+    "@types/cors": "*",
+    "@types/express": "*",
     "@types/nodemailer": "^8.0.2",
-    "@types/pg": "latest",
-    "tsup": "latest",
-    "tsx": "latest"
+    "@types/pg": "*",
+    "tsup": "*",
+    "tsx": "*"
   }
 }
